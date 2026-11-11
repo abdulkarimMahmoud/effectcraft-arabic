@@ -112,7 +112,7 @@ pub fn dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     let mut d = app.dialog_state.precompose.clone();
     let (mut ok, mut cancel) = (false, false);
     super::dialogs::modal(ctx, "Pre-compose", vec2(520.0, 360.0), t, |ui| {
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(tr("New composition name:"));
             let r = ui.add(egui::TextEdit::singleline(&mut d.name).desired_width(260.0));
             crate::widgets::focus_on_open(ui.ctx(), &r, &d.name);
@@ -148,7 +148,7 @@ pub fn dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
         let r = crate::widgets::labelled_checkbox(ui, &mut d.open, tr("Open New Composition"));
         app.auto.add("dialog.precompose.open", r.rect, "Open New Composition");
         ui.add_space(14.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             let r = ui.add(egui::Button::new(egui::RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(t.accent));
             app.auto.add("dialog.precompose.ok", r.rect, "OK");
             ok = r.clicked();
@@ -189,14 +189,22 @@ pub fn navigator(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
     let proj = app.session.project.clone();
     let ch = chain(&proj, cid, &app.session.state.open_comps);
     let down = downstream(&proj, cid);
-    let mut x = rect.min.x + 10.0;
+    // In an RTL interface the chain flows from the right, the separators point left and the
+    // flowchart button sits at the left end.
+    let rtl = crate::i18n::current_is_rtl();
+    let mut x = if rtl { rect.max.x - 10.0 } else { rect.min.x + 10.0 };
     let cy = rect.center().y;
     let mut open: Option<ItemId> = None;
     let items: Vec<(ItemId, bool)> = ch.iter().map(|c| (*c, false)).chain(down.iter().take(1).map(|c| (*c, true))).collect();
     for (i, (id, downstream_item)) in items.iter().enumerate() {
         if i > 0 {
-            crate::icons::paint(&p, Rect::from_center_size(pos2(x + 6.0, cy), vec2(8.0, 8.0)), crate::icons::Icon::ChevronRight, t.text_faint);
-            x += 16.0;
+            let sep = Rect::from_center_size(pos2(if rtl { x - 6.0 } else { x + 6.0 }, cy), vec2(8.0, 8.0));
+            if rtl {
+                crate::icons::paint_mirrored(&p, sep, crate::icons::Icon::ChevronRight, t.text_faint);
+            } else {
+                crate::icons::paint(&p, sep, crate::icons::Icon::ChevronRight, t.text_faint);
+            }
+            x += if rtl { -16.0 } else { 16.0 };
         }
         let active = *id == cid;
         let label = name(&proj, *id);
@@ -208,21 +216,30 @@ pub fn navigator(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
             t.text_dim
         };
         let g = p.layout_no_wrap(label.clone(), Tokens::ui(11.5), col);
-        let r = Rect::from_min_size(pos2(x, rect.min.y + 2.0), vec2(g.size().x + 12.0, rect.height() - 4.0));
+        let w = g.size().x + 12.0;
+        let r = if rtl {
+            Rect::from_min_size(pos2(x - w, rect.min.y + 2.0), vec2(w, rect.height() - 4.0))
+        } else {
+            Rect::from_min_size(pos2(x, rect.min.y + 2.0), vec2(w, rect.height() - 4.0))
+        };
         let resp = ui.interact(r, egui::Id::unique(("comp-nav", id.0)), Sense::click());
         if active {
             p.rect_filled(r, 3.0, t.row_selected);
         } else if resp.hovered() {
             p.rect_filled(r, 3.0, t.hover);
         }
-        p.galley(pos2(r.min.x + 6.0, cy - g.size().y / 2.0), g, col);
+        p.galley(pos2(if rtl { r.max.x - 6.0 - g.size().x } else { r.min.x + 6.0 }, cy - g.size().y / 2.0), g, col);
         app.auto.add(&format!("viewer.navigator.{}", id.0), r, &label);
         if resp.clicked() && !active {
             open = Some(*id);
         }
-        x = r.max.x + 2.0;
+        x = if rtl { r.min.x - 2.0 } else { r.max.x + 2.0 };
     }
-    let fr = Rect::from_min_size(pos2(rect.max.x - 26.0, rect.min.y + 2.0), vec2(22.0, rect.height() - 4.0));
+    let fr = if rtl {
+        Rect::from_min_size(pos2(rect.min.x + 4.0, rect.min.y + 2.0), vec2(22.0, rect.height() - 4.0))
+    } else {
+        Rect::from_min_size(pos2(rect.max.x - 26.0, rect.min.y + 2.0), vec2(22.0, rect.height() - 4.0))
+    };
     if crate::widgets::icon_button(ui, fr, crate::icons::Icon::Flowchart, false, &t, egui::Id::unique("comp-nav-flow"))
         .on_hover_text(tr("Composition Mini-Flowchart"))
         .clicked()

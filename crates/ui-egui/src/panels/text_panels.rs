@@ -157,7 +157,7 @@ fn stroke_width_presets(app: &mut EffectcraftApp, ui: &mut egui::Ui, r: Rect, en
     let t = app.tokens;
     let br = Rect::from_min_size(pos2(r.max.x + 4.0, r.min.y + 2.0), vec2(16.0, 16.0));
     let pop = egui::Id::unique("char-stroke-width-pop");
-    if widgets::icon_button(ui, br, crate::icons::Icon::ChevronDown, false, &t, egui::Id::unique("char-stroke-width-presets"))
+    if widgets::icon_button_mirrored(ui, br, crate::icons::Icon::ChevronDown, false, &t, egui::Id::unique("char-stroke-width-presets"))
         .on_hover_text(tr("Stroke width presets"))
         .clicked()
         && enabled
@@ -530,8 +530,11 @@ fn opentype_popup(app: &mut EffectcraftApp, ui: &mut egui::Ui, id: egui::Id, pos
             }
             ui.separator();
             ui.label(egui::RichText::new(tr("Stylistic Sets")).small().color(t.text_dim));
+            let rtl = crate::i18n::current_is_rtl();
             egui::Grid::new(id.with("sets")).spacing(vec2(3.0, 3.0)).show(ui, |ui| {
-                for n in 1..=20u32 {
+                for pos in 1..=20u32 {
+                    // In an RTL interface each row of five runs right-to-left (5..1, 10..6...).
+                    let n = if rtl { ((pos - 1) / 5) * 5 + (5 - (pos - 1) % 5) } else { pos };
                     let key = format!("ss{n:02}");
                     let on = o.stylistic_set(n);
                     let avail = has(&key);
@@ -543,7 +546,7 @@ fn opentype_popup(app: &mut EffectcraftApp, ui: &mut egui::Ui, id: egui::Id, pos
                     if r.clicked() {
                         actions.push(json!({key: !on}));
                     }
-                    if n % 5 == 0 {
+                    if pos % 5 == 0 {
                         ui.end_row();
                     }
                 }
@@ -779,7 +782,7 @@ pub(super) fn font_picker(app: &mut EffectcraftApp, ui: &mut egui::Ui, id: egui:
         search.request_focus();
     }
     ui.memory_mut(|m| m.set_focus_lock_filter(search_id, egui::EventFilter { vertical_arrows: true, escape: true, ..Default::default() }));
-    if widgets::icon_button(ui, arrow, crate::icons::Icon::ChevronDown, false, &t, id.with("arrow"))
+    if widgets::icon_button_mirrored(ui, arrow, crate::icons::Icon::ChevronDown, false, &t, id.with("arrow"))
         .on_hover_text(crate::i18n::tr("Close font search"))
         .clicked()
     {

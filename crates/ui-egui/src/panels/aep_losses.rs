@@ -117,7 +117,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             }
         });
         ui.add_space(14.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             let label = if import { tr("Import Anyway") } else { tr("Export Anyway") };
             let r = ui.button(label);
             app.auto.add("dialog.aepLosses.continue", r.rect, label);

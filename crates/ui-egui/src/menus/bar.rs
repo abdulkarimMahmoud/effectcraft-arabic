@@ -47,7 +47,14 @@ pub fn menu_bar(app: &mut EffectcraftApp, ui: &mut egui::Ui) {
     let last = ctx.data_mut(|d| std::mem::replace(d.get_temp_mut_or(last_pointer_id(), None), pointer));
     let moved = pointer.is_some() && pointer != last;
     let mut drawn = 0;
-    ui.horizontal_centered(|ui| {
+    // RTL chrome: the menu titles start from the right in an RTL interface (the timeline,
+    // graph editor and viewer keep their left-to-right time/space axes; see `i18n::is_rtl`).
+    let bar_layout = if crate::i18n::is_rtl(app) {
+        egui::Layout::right_to_left(egui::Align::Center)
+    } else {
+        egui::Layout::left_to_right(egui::Align::Center)
+    };
+    ui.allocate_ui_with_layout(ui.available_size(), bar_layout, |ui| {
         ui.add_space(6.0);
         egui::MenuBar::new().config(egui::containers::menu::MenuConfig::new().style(crate::widgets::menu_style)).ui(ui, |ui| {
             for node in effectcraft_engine::menus::menu_bar() {
@@ -206,7 +213,9 @@ fn menu_nodes(
                 let shown = crate::i18n::effect_category(children, label)
                     .unwrap_or_else(|| crate::i18n::submenu(app, label, effectcraft_engine::menus::submenu_label(&app.session, label, &dyn_ctx(&ws, &[]))));
                 let browsing = nav.browsing();
-                let egui::InnerResponse { inner, response } = ui.menu_button((gutter(false), shown.as_str()), |ui| {
+                // In RTL the submenu's arrow points left (the fork's `SubMenu::show` hardcodes
+                // `RectAlign::RIGHT_START`, so the fork patch below is needed for the full fix).
+                let egui::InnerResponse { inner, response } = crate::widgets::submenu_button(ui, (gutter(false), shown.as_str()), |ui| {
                     ui.set_min_width(if children.len() > 30 { 200.0 } else { 240.0 });
                     crate::widgets::menu_scroll(ui, browsing, |ui| menu_nodes(app, ui, children, clicked, nav, depth + 1));
                 });

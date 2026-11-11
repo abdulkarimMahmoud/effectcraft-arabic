@@ -32,6 +32,7 @@ chrono = { workspace = true }
 rayon = { workspace = true }
 web-time = { workspace = true }
 kurbo = { workspace = true }
+unicode-bidi = { workspace = true }
 image = { workspace = true }
 # Half-float viewer frames of 32 bpc projects (F16C is picked at run time).
 half = { workspace = true }

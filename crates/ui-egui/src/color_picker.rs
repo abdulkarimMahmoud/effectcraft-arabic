@@ -417,7 +417,7 @@ fn color_picker(ui: &mut Ui, id: egui::Id, c: &mut [f32; 3], original: [f32; 3])
                 slider(ui, chan, &mut pick);
             });
             ui.add_space(8.0);
-            ui.horizontal(|ui| {
+            crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                 ui.spacing_mut().item_spacing.x = 6.0;
                 if ui.add_sized(vec2(72.0, 20.0), egui::Button::new(tr("OK"))).clicked() {
                     out.close = Some(true);
@@ -434,7 +434,7 @@ fn color_picker(ui: &mut Ui, id: egui::Id, c: &mut [f32; 3], original: [f32; 3])
             }
             ui.add_space(4.0);
             let mut field = |ui: &mut Ui, ch: Chan, name: &str, scale: f32, suffix: &str| {
-                ui.horizontal(|ui| {
+                crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                     ui.spacing_mut().item_spacing.x = 2.0;
                     let radio = ui.radio(chan == ch, format!("{name}:"));
                     // Line the fields up whatever each label's width.
@@ -461,7 +461,7 @@ fn color_picker(ui: &mut Ui, id: egui::Id, c: &mut [f32; 3], original: [f32; 3])
             field(ui, Chan::G, "G", 255.0, "");
             field(ui, Chan::B, "B", 255.0, "");
             ui.add_space(4.0);
-            ui.horizontal(|ui| {
+            crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                 ui.spacing_mut().item_spacing.x = 4.0;
                 let mut rgb = pick.rgb;
                 if hex_field(ui, id.with("hex"), &mut rgb) {

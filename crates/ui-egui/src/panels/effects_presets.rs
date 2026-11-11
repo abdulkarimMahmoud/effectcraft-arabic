@@ -98,14 +98,20 @@ fn filled_star(p: &egui::Painter, c: egui::Pos2, r: f32, fill: Option<Color32>, 
 }
 
 /// Text with the search match highlighted.
-fn highlighted(p: &egui::Painter, pos: egui::Pos2, name: &str, query: &str, t: &Tokens) {
+fn highlighted(p: &egui::Painter, pos: egui::Pos2, name: &str, query: &str, t: &Tokens, rtl: bool) {
     if let Some(m) = match_range(name, query) {
         let pre = p.layout_no_wrap(name[..m.start].to_string(), Tokens::ui(12.0), t.text).size().x;
         let hit = p.layout_no_wrap(name[m.clone()].to_string(), Tokens::ui(12.0), t.text).size().x;
-        let r = Rect::from_min_size(pos2(pos.x + pre - 1.0, pos.y - 8.0), vec2(hit + 2.0, 16.0));
+        let x = if rtl {
+            let total = p.layout_no_wrap(name.to_string(), Tokens::ui(12.0), t.text).size().x;
+            pos.x - total + pre - 1.0
+        } else {
+            pos.x + pre - 1.0
+        };
+        let r = Rect::from_min_size(pos2(x, pos.y - 8.0), vec2(hit + 2.0, 16.0));
         p.rect_filled(r, 2.0, t.accent.gamma_multiply(0.45));
     }
-    p.text(pos, Align2::LEFT_CENTER, name, Tokens::ui(12.0), t.text);
+    p.text(pos, if rtl { Align2::RIGHT_CENTER } else { Align2::LEFT_CENTER }, name, Tokens::ui(12.0), t.text);
 }
 
 #[derive(Clone)]
@@ -205,15 +211,27 @@ fn folder_row(
     } else if resp.hovered() {
         lp.rect_filled(r, 0.0, t.hover);
     }
-    let tw = Rect::from_center_size(pos2(r.min.x + 12.0 + indent, r.center().y), vec2(12.0, 12.0));
-    icons::paint(lp, tw, if open { Icon::ChevronDown } else { Icon::ChevronRight }, t.text_dim);
-    let ic = Rect::from_center_size(pos2(r.min.x + 28.0 + indent, r.center().y), vec2(13.0, 13.0));
+    // In an RTL interface the row mirrors: the disclosure chevron (pointing left when closed),
+    // the icon and the name sit at the right, the indent growing from the right.
+    let rtl = crate::i18n::current_is_rtl();
+    let edge = if rtl { r.max.x } else { r.min.x };
+    let dir = if rtl { -1.0 } else { 1.0 };
+    let tw = Rect::from_center_size(pos2(edge + dir * (12.0 + indent), r.center().y), vec2(12.0, 12.0));
+    let chevron = if open { Icon::ChevronDown } else { Icon::ChevronRight };
+    if rtl {
+        icons::paint_mirrored(lp, tw, chevron, t.text_dim);
+    } else {
+        icons::paint(lp, tw, chevron, t.text_dim);
+    }
+    let ic = Rect::from_center_size(pos2(edge + dir * (28.0 + indent), r.center().y), vec2(13.0, 13.0));
     match icon {
         Some(Icon::Star) => filled_star(lp, ic.center(), 6.0, Some(Color32::from_rgb(0xe8, 0xc0, 0x40)), Color32::from_rgb(0xe8, 0xc0, 0x40)),
         Some(i) => icons::paint(lp, ic, i, t.text_dim),
         None => icons::paint(lp, ic, Icon::Folder, Color32::from_rgb(0xc8, 0xb0, 0x58)),
     }
-    lp.text(pos2(r.min.x + 40.0 + indent, r.center().y), Align2::LEFT_CENTER, shown, Tokens::ui(12.0), t.text);
+    let text_pos = pos2(edge + dir * (40.0 + indent), r.center().y);
+    let text_align = if rtl { Align2::RIGHT_CENTER } else { Align2::LEFT_CENTER };
+    lp.text(text_pos, text_align, shown, Tokens::ui(12.0), t.text);
     app.auto.add(&format!("effects.category.{key}"), r, label);
     a11y::tree_item(&resp, shown, selected, level, Some(open));
     row_focus(app, ui, lp, &resp, r, id);
@@ -299,20 +317,25 @@ fn effect_row(
     if r.max.y < list.min.y || r.min.y > list.max.y {
         return;
     }
-    let star = Rect::from_center_size(pos2(r.max.x - 38.0, r.center().y), vec2(16.0, 16.0));
+    // In an RTL interface the row mirrors: the name and its icon at the right, the star and the
+    // float badge at the left.
+    let rtl = crate::i18n::current_is_rtl();
+    let edge = if rtl { r.max.x } else { r.min.x };
+    let dir = if rtl { -1.0 } else { 1.0 };
+    let star = Rect::from_center_size(pos2(if rtl { r.min.x + 38.0 } else { r.max.x - 38.0 }, r.center().y), vec2(16.0, 16.0));
     let resp = ui.interact(r.intersect(list), id, if tab { Sense::click_and_drag() } else { Sense::CLICK | Sense::DRAG });
     if selected {
         lp.rect_filled(r, 0.0, t.row_selected);
     } else if resp.hovered() {
         lp.rect_filled(r, 0.0, t.hover);
     }
-    icons::paint(lp, Rect::from_center_size(pos2(r.min.x + 44.0 + indent, r.center().y), vec2(12.0, 12.0)), Icon::Fx, t.text_dim);
+    icons::paint(lp, Rect::from_center_size(pos2(edge + dir * (44.0 + indent), r.center().y), vec2(12.0, 12.0)), Icon::Fx, t.text_dim);
     // The row draws the effect's name in the interface language; the automation label keeps the
     // registry's English name, which is what scripts and the control channel address (#821).
     let shown = crate::i18n::effects::name(e.id, e.name);
-    highlighted(lp, pos2(r.min.x + 56.0 + indent, r.center().y), &shown, query, &t);
+    highlighted(lp, pos2(edge + dir * (56.0 + indent), r.center().y), &shown, query, &t, rtl);
     if e.float {
-        lp.text(pos2(r.max.x - 10.0, r.center().y), Align2::RIGHT_CENTER, "32", Tokens::ui(9.5), t.text_faint);
+        lp.text(pos2(if rtl { r.min.x + 10.0 } else { r.max.x - 10.0 }, r.center().y), if rtl { Align2::LEFT_CENTER } else { Align2::RIGHT_CENTER }, "32", Tokens::ui(9.5), t.text_faint);
     }
     app.auto.add(&format!("{auto_prefix}.{}", e.id), r, e.name);
     a11y::tree_item(&resp, &shown, selected, level, None);
@@ -379,8 +402,11 @@ fn preset_row(
     } else if resp.hovered() {
         lp.rect_filled(r, 0.0, t.hover);
     }
-    icons::paint(lp, Rect::from_center_size(pos2(r.min.x + 58.0, r.center().y), vec2(12.0, 12.0)), Icon::Keyframe, t.text_dim);
-    highlighted(lp, pos2(r.min.x + 70.0, r.center().y), name, query, &t);
+    let rtl = crate::i18n::current_is_rtl();
+    let edge = if rtl { r.max.x } else { r.min.x };
+    let dir = if rtl { -1.0 } else { 1.0 };
+    icons::paint(lp, Rect::from_center_size(pos2(edge + dir * 58.0, r.center().y), vec2(12.0, 12.0)), Icon::Keyframe, t.text_dim);
+    highlighted(lp, pos2(edge + dir * 70.0, r.center().y), name, query, &t, rtl);
     app.auto.add(auto_id, r, name);
     a11y::tree_item(&resp, name, selected, 3, None);
     row_focus(app, ui, lp, &resp, r, id);
@@ -397,7 +423,8 @@ fn preset_row(
 
 /// The list's keys. With a row focused (Tab, a screen reader): Up / Down move between rows,
 /// Home / End go to the first / last, Page Up / Page Down a page, Right opens a folder (then steps
-/// into it) and Left closes it (then steps out to it), Enter and Space apply the row or open /
+/// into it) and Left closes it (then steps out to it) — swapped in an RTL interface, where Left
+/// opens and Right closes — Enter and Space apply the row or open /
 /// close the folder. With the mouse's last click in the panel and no widget focused, the arrows
 /// and Enter work the same, so the list is operable without a mouse either way. The focus follows
 /// the cursor, so a screen reader reads each row as it is reached. Returns what to apply.
@@ -435,6 +462,16 @@ fn list_keys(app: &mut EffectcraftApp, ctx: &egui::Context, nav: &Nav, list: Rec
     let mut apply = None;
     let mut moved = false;
     for key in keys {
+        // In an RTL interface Left opens a folder and Right closes it (folders open to the left).
+        let key = if crate::i18n::current_is_rtl() {
+            match key {
+                Key::ArrowRight => Key::ArrowLeft,
+                Key::ArrowLeft => Key::ArrowRight,
+                k => k,
+            }
+        } else {
+            key
+        };
         let at = cursor.and_then(|c| nav.rows.iter().position(|r| r.id == c));
         let last = nav.rows.len().checked_sub(1)?;
         let to = match key {

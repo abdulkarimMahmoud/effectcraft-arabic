@@ -130,35 +130,36 @@ pub fn dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     let ok_key = super::dialogs::ui_command_key(ctx, egui::Key::Enter);
     let title = d.title.clone();
     super::dialogs::modal(ctx, &title, vec2(520.0, 560.0), t, |ui| {
+        let rtl = crate::i18n::current_is_rtl();
         egui::Grid::new("marker-grid").num_columns(2).spacing([12.0, 8.0]).show(ui, |ui| {
-            ui.label(tr("Time:"));
-            let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.time).speed(0.01).range(0.0..=1e6).suffix(" s").max_decimals(3)));
-            app.auto.add("dialog.marker.time", r.rect, "Time");
-            ui.end_row();
-            ui.label(tr("Duration:"));
-            let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.duration).speed(0.01).range(0.0..=1e6).suffix(" s").max_decimals(3)));
-            app.auto.add("dialog.marker.duration", r.rect, "Duration");
-            ui.end_row();
-            ui.label(tr("Comment:"));
-            let r = ui.add(egui::TextEdit::multiline(&mut d.comment).desired_rows(3).desired_width(320.0));
-            crate::widgets::focus_on_open(ui.ctx(), &r, &d.comment);
-            app.auto.add("dialog.marker.comment", r.rect, "Comment");
-            ui.end_row();
-            ui.label(tr("Chapter:"));
-            text_field(ui, app, "dialog.marker.chapter", &mut d.chapter, 320.0);
-            ui.end_row();
-            ui.label(tr("URL:"));
-            text_field(ui, app, "dialog.marker.url", &mut d.url, 320.0);
-            ui.end_row();
-            ui.label(tr("Frame Target:"));
-            text_field(ui, app, "dialog.marker.frameTarget", &mut d.frame_target, 320.0);
-            ui.end_row();
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Time:")), |ui| {
+                let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.time).speed(0.01).range(0.0..=1e6).suffix(" s").max_decimals(3)));
+                app.auto.add("dialog.marker.time", r.rect, "Time");
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Duration:")), |ui| {
+                let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.duration).speed(0.01).range(0.0..=1e6).suffix(" s").max_decimals(3)));
+                app.auto.add("dialog.marker.duration", r.rect, "Duration");
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Comment:")), |ui| {
+                let r = ui.add(egui::TextEdit::multiline(&mut d.comment).desired_rows(3).desired_width(320.0));
+                crate::widgets::focus_on_open(ui.ctx(), &r, &d.comment);
+                app.auto.add("dialog.marker.comment", r.rect, "Comment");
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Chapter:")), |ui| {
+                text_field(ui, app, "dialog.marker.chapter", &mut d.chapter, 320.0);
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("URL:")), |ui| {
+                text_field(ui, app, "dialog.marker.url", &mut d.url, 320.0);
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Frame Target:")), |ui| {
+                text_field(ui, app, "dialog.marker.frameTarget", &mut d.frame_target, 320.0);
+            });
         });
         ui.add_space(8.0);
         let r = crate::widgets::labelled_checkbox(ui, &mut d.cue, tr("Cue Point"));
         app.auto.add("dialog.marker.cue", r.rect, "Cue Point");
         ui.add_enabled_ui(d.cue, |ui| {
-            ui.horizontal(|ui| {
+            crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                 let r = ui.radio_value(&mut d.cue_navigation, false, tr("Event"));
                 app.auto.add("dialog.marker.cue.event", r.rect, "Event");
                 let r = ui.radio_value(&mut d.cue_navigation, true, tr("Navigation"));
@@ -168,7 +169,7 @@ pub fn dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             });
             let mut remove = None;
             for (i, (k, v)) in d.cue_params.iter_mut().enumerate() {
-                ui.horizontal(|ui| {
+                crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                     ui.label(tr("Parameter Name:"));
                     text_field(ui, app, &format!("dialog.marker.cue.param.{i}.name"), k, 110.0);
                     ui.label(tr("Value:"));
@@ -190,7 +191,7 @@ pub fn dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             }
         });
         ui.add_space(8.0);
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             let r = crate::widgets::labelled_checkbox(ui, &mut d.protected, tr("Protected Region"));
             app.auto.add("dialog.marker.protected", r.rect, "Protected Region");
             ui.add_space(20.0);
@@ -207,11 +208,11 @@ pub fn dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             app.auto.add("dialog.marker.label", r.response.rect, "Label");
         });
         ui.add_space(14.0);
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             let r = ui.button(tr("Delete"));
             app.auto.add("dialog.marker.delete", r.rect, "Delete");
             delete = r.clicked();
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
                 let r = ui.add(egui::Button::new(egui::RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(app.tokens.accent));
                 app.auto.add("dialog.marker.ok", r.rect, "OK");
                 ok = r.clicked();

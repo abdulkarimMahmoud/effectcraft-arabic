@@ -56,40 +56,41 @@ pub fn dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     }
     let (mut ok, mut close) = (false, false);
     super::dialogs::modal(ctx, "New 3D Primitive", vec2(420.0, 300.0), t, |ui| {
+        let rtl = crate::i18n::current_is_rtl();
         egui::Grid::new("primitive-grid").num_columns(2).spacing([14.0, 9.0]).show(ui, |ui| {
-            ui.label(tr("Type"));
-            let combo = craft_ui::ComboBox::from_id_salt("primitive-type").selected_text(tr(d.kind.label())).show_ui(ui, |ui| {
-                for (i, k) in PrimitiveKind::ALL.into_iter().enumerate() {
-                    let item = ui.selectable_value(&mut d.kind, k, tr(k.label()));
-                    app.auto.add(&format!("dialog.primitive.typeItem.{i}"), item.rect, k.label());
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Type")), |ui| {
+                let combo = craft_ui::ComboBox::from_id_salt("primitive-type").selected_text(tr(d.kind.label())).show_ui(ui, |ui| {
+                    for (i, k) in PrimitiveKind::ALL.into_iter().enumerate() {
+                        let item = ui.selectable_value(&mut d.kind, k, tr(k.label()));
+                        app.auto.add(&format!("dialog.primitive.typeItem.{i}"), item.rect, k.label());
+                    }
+                });
+                app.auto.add_response("dialog.primitive.type", &combo.response, "Type");
+                if !d.named {
+                    d.name = d.kind.label().to_string();
                 }
             });
-            app.auto.add_response("dialog.primitive.type", &combo.response, "Type");
-            if !d.named {
-                d.name = d.kind.label().to_string();
-            }
-            ui.end_row();
-            ui.label(tr("Name"));
-            let r = ui.add(egui::TextEdit::singleline(&mut d.name).desired_width(220.0));
-            d.named |= r.changed();
-            app.auto.add_response("dialog.primitive.name", &r, "Name");
-            ui.end_row();
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Name")), |ui| {
+                let r = ui.add(egui::TextEdit::singleline(&mut d.name).desired_width(220.0));
+                d.named |= r.changed();
+                app.auto.add_response("dialog.primitive.name", &r, "Name");
+            });
             for p in dimensions(d.kind) {
                 let ParamUi::Slider { min, max, decimals, .. } = p.ui else { continue };
                 let mut v = d.dims.get(&p.match_id).copied().unwrap_or(p.value.as_f64());
-                ui.label(tr(&p.name));
-                // Counts (segments, rings) are whole numbers; sizes are pixels.
-                let suffix = if decimals == 0 { "" } else { " px" };
-                let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut v).range(min..=max).max_decimals(decimals as usize).suffix(suffix)));
-                app.auto.add_response(&format!("dialog.primitive.{}", p.match_id), &r, &p.name);
-                if r.changed() {
-                    d.dims.insert(p.match_id, v);
-                }
-                ui.end_row();
+                crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr(&p.name)), |ui| {
+                    // Counts (segments, rings) are whole numbers; sizes are pixels.
+                    let suffix = if decimals == 0 { "" } else { " px" };
+                    let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut v).range(min..=max).max_decimals(decimals as usize).suffix(suffix)));
+                    app.auto.add_response(&format!("dialog.primitive.{}", p.match_id), &r, &p.name);
+                    if r.changed() {
+                        d.dims.insert(p.match_id, v);
+                    }
+                });
             }
         });
         ui.add_space(14.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             let b = ui.add(egui::Button::new(egui::RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(t.accent));
             app.auto.add("dialog.primitive.ok", b.rect, "OK");
             ok |= b.clicked();

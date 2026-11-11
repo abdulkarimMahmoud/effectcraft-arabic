@@ -112,10 +112,10 @@ pub fn coach(app: &mut EffectcraftApp, ctx: &egui::Context) {
                 .shadow(egui::epaint::Shadow { offset: [0, 4], blur: 16, spread: 0, color: Color32::from_black_alpha(140) })
                 .show(ui, |ui| {
                     ui.set_width(w - 28.0);
-                    ui.horizontal(|ui| {
+                    crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                         ui.label(egui::RichText::new(tr("LEARN")).font(Tokens::semibold(10.0)).color(t.accent));
                         ui.label(egui::RichText::new(&tut.title).font(Tokens::ui(11.0)).color(t.text_dim));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
                             let (cr, r) = ui.allocate_exact_size(vec2(16.0, 16.0), Sense::click());
                             let r = r.on_hover_text(tr("Close tutorial"));
                             crate::icons::paint(ui.painter(), cr, crate::icons::Icon::Close, if r.hovered() { Color32::WHITE } else { t.text_dim });
@@ -159,7 +159,7 @@ pub fn coach(app: &mut EffectcraftApp, ctx: &egui::Context) {
                         }
                     }
                     ui.add_space(8.0);
-                    ui.horizontal(|ui| {
+                    crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                         let back = ui.add_enabled(i > 0, egui::Button::new(tr("Back")));
                         app.auto.add("learn.back", back.rect, "Back");
                         if back.clicked() {

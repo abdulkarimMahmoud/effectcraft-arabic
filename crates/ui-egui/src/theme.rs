@@ -342,9 +342,17 @@ static JETBRAINS_MONO: &[u8] = include_bytes!("../../../assets/fonts/JetBrainsMo
 /// JetBrains Mono do not cover. 0.37's default font set no longer includes the old emoji
 /// fonts, and named families (`medium`, `semibold`) never received egui's default fallbacks.
 static NOTO_SYMBOLS2: &[u8] = include_bytes!("../../../assets/fonts/NotoSansSymbols2-Regular.ttf");
+/// IBM Plex Sans Arabic (OFL): the bundled Arabic face. Inter and JetBrains Mono have no
+/// Arabic glyphs, so without it an Arabic interface (and the web build, which installs no
+/// system fonts) would draw missing-glyph boxes. Registered right after Inter in every UI
+/// family, so Arabic text is drawn by Plex while Latin stays Inter.
+static PLEX_ARABIC: &[u8] = include_bytes!("../../../assets/fonts/IBMPlexSansArabic-Regular.ttf");
+static PLEX_ARABIC_MEDIUM: &[u8] = include_bytes!("../../../assets/fonts/IBMPlexSansArabic-Medium.ttf");
+static PLEX_ARABIC_SEMIBOLD: &[u8] = include_bytes!("../../../assets/fonts/IBMPlexSansArabic-SemiBold.ttf");
 
-/// Install fonts (Inter, Inter Medium/SemiBold, JetBrains Mono) and egui visuals. `language` is the
-/// resolved interface language from `crate::i18n::language` (`en`, `ja`, `zh-hans` or `zh-hant`),
+/// Install fonts (Inter, Inter Medium/SemiBold, JetBrains Mono, IBM Plex Sans Arabic) and egui
+/// visuals. `language` is the resolved interface language from `crate::i18n::language`
+/// (`en`, `ja`, `zh-hans`, `zh-hant` or `ar`),
 /// not the stored `general.language` preference: `system` is already resolved there, so a Chinese
 /// system draws Chinese with the default setting. The CJK fallback that draws the interface's own
 /// script is registered first, so a Chinese interface is drawn by a Chinese face and a Japanese one
@@ -358,12 +366,16 @@ pub fn install(ctx: &egui::Context, t: &Tokens, language: &str) {
     fonts.font_data.insert("inter-semibold".into(), Arc::new(FontData::from_static(INTER_SEMIBOLD)));
     fonts.font_data.insert("jbmono".into(), Arc::new(FontData::from_static(JETBRAINS_MONO)));
     fonts.font_data.insert("noto-symbols2".into(), Arc::new(FontData::from_static(NOTO_SYMBOLS2)));
+    fonts.font_data.insert("plex-arabic".into(), Arc::new(FontData::from_static(PLEX_ARABIC)));
+    fonts.font_data.insert("plex-arabic-medium".into(), Arc::new(FontData::from_static(PLEX_ARABIC_MEDIUM)));
+    fonts.font_data.insert("plex-arabic-semibold".into(), Arc::new(FontData::from_static(PLEX_ARABIC_SEMIBOLD)));
     fonts.families.entry(FontFamily::Proportional).or_default().insert(0, "inter".into());
+    fonts.families.entry(FontFamily::Proportional).or_default().insert(1, "plex-arabic".into());
     fonts.families.entry(FontFamily::Monospace).or_default().insert(0, "jbmono".into());
     // Named weights need the same symbol fallback chain as ordinary labels.
     // The bundled Inter subset and JetBrains Mono do not cover every UI symbol.
-    for (family, face) in [("semibold", "inter-semibold"), ("medium", "inter-medium")] {
-        let mut stack = vec![face.into(), "inter".into()];
+    for (family, face, arabic) in [("semibold", "inter-semibold", "plex-arabic-semibold"), ("medium", "inter-medium", "plex-arabic-medium")] {
+        let mut stack = vec![face.into(), "inter".into(), arabic.into()];
         stack.extend(proportional_fallbacks.iter().cloned());
         fonts.families.insert(FontFamily::Name(family.into()), stack);
     }
@@ -633,6 +645,10 @@ pub fn apply_visuals(ctx: &egui::Context, t: &Tokens) {
     // [`theme_preference`]); both get ours, so whichever it picks, egui's defaults never show.
     ctx.all_styles_mut(|s| {
         s.visuals = v.clone();
+        // RTL: egui's own widgets (buttons, combo boxes, scroll areas) mirror their layout.
+        // The timeline, graph editor and viewer keep their left-to-right axes by drawing with
+        // explicit coordinates, never with `ui.horizontal`.
+        s.right_to_left = crate::i18n::current_is_rtl();
         s.spacing.item_spacing = egui::vec2(6.0, 4.0);
         s.spacing.button_padding = egui::vec2(8.0, 3.0);
         s.spacing.interact_size.y = 22.0;

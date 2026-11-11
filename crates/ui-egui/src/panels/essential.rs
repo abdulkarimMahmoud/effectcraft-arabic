@@ -74,7 +74,7 @@ fn body(app: &mut EffectcraftApp, ui: &mut egui::Ui) -> (Actions, Actions) {
     let comp_name = project.item(cid).map(|i| i.name.clone()).unwrap_or_default();
 
     // ---- Primary + Solo.
-    ui.horizontal(|ui| {
+    crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
         ui.label(RichText::new(tr("Primary:")).color(t.text_dim));
         let r = craft_ui::ComboBox::from_id_salt("eg-primary").selected_text(&comp_name).width(150.0).show_ui(ui, |ui| {
             for (id, _) in project.comps() {
@@ -137,7 +137,7 @@ fn body(app: &mut EffectcraftApp, ui: &mut egui::Ui) -> (Actions, Actions) {
     ui.separator();
 
     // ---- Bottom buttons.
-    ui.horizontal_wrapped(|ui| {
+    crate::widgets::h_row_wrapped(ui, crate::i18n::current_is_rtl(), |ui| {
         let r = crate::widgets::menu_button(ui, tr("Add Formatting"), |ui| {
             if ui.button(tr("Add Group")).clicked() {
                 actions.push(("essential.addGroup".into(), json!({"comp": cid.0})));
@@ -189,7 +189,7 @@ fn controls(app: &mut EffectcraftApp, ui: &mut egui::Ui, cid: ItemId, list: &[Eg
     let t = app.tokens;
     let n = list.len();
     for (i, c) in list.iter().enumerate() {
-        let row = ui.horizontal(|ui| {
+        let row = crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             // Reorder / remove.
             for (label, auto, enabled, to) in [("▲", "up", i > 0, i.saturating_sub(1)), ("▼", "down", i + 1 < n, i + 1)] {
                 let r = ui.add_enabled(enabled, egui::Button::new(RichText::new(label).size(9.0)).small().frame(false));
@@ -512,7 +512,7 @@ fn instance(app: &mut EffectcraftApp, ui: &mut egui::Ui, actions: &mut Actions) 
         });
         let Some(p) = pr else { continue };
         let is_over = over.contains(&p.uid);
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(RichText::new(if is_over { "●" } else { "○" }).color(if is_over { t.accent } else { t.text_faint })).on_hover_text(if is_over {
                 "Overridden in this instance"
             } else {
@@ -565,7 +565,7 @@ fn instance(app: &mut EffectcraftApp, ui: &mut egui::Ui, actions: &mut Actions) 
             }
         });
     }
-    ui.horizontal(|ui| {
+    crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
         let any = !over.is_empty();
         let r = ui.add_enabled(any, egui::Button::new(tr("Push All to Comp")));
         app.auto.add("essential.instance.pushAll", r.rect, "Push Override Values to Source");

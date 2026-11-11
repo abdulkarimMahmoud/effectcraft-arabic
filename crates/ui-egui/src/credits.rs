@@ -242,7 +242,7 @@ impl Default for View {
 pub fn contributors_ui(ui: &mut egui::Ui, auto: &mut Registry) {
     let id = egui::Id::unique("credits_view");
     let mut v = ui.data_mut(|d| d.get_temp::<View>(id)).unwrap_or_default();
-    ui.horizontal_wrapped(|ui| {
+    crate::widgets::h_row_wrapped(ui, crate::i18n::current_is_rtl(), |ui| {
         ui.label(tr("Show"));
         for m in NameMode::ALL {
             let r = ui.selectable_label(v.names == m, tr(m.label()));
@@ -292,7 +292,7 @@ pub fn contributors_ui(ui: &mut egui::Ui, auto: &mut Registry) {
         egui::ScrollArea::horizontal().auto_shrink([false, false]).show(ui, |ui| table(ui, &list, &mut v, auto));
     } else {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-            ui.horizontal_wrapped(|ui| {
+            crate::widgets::h_row_wrapped(ui, crate::i18n::current_is_rtl(), |ui| {
                 for (i, c) in list.iter().enumerate() {
                     if i > 0 {
                         ui.label(RichText::new("·").weak());
@@ -407,7 +407,7 @@ fn cells(c: &Contributor) -> [String; 9] {
 fn table(ui: &mut egui::Ui, list: &[&Contributor], v: &mut View, auto: &mut Registry) {
     let h = row_height(ui);
     let rows: Vec<[String; 9]> = list.iter().map(|c| cells(c)).collect();
-    let widths: Vec<f32> = SortKey::ALL
+    let mut widths: Vec<f32> = SortKey::ALL
         .iter()
         .enumerate()
         .map(|(i, &k)| match i.checked_sub(1) {
@@ -415,9 +415,18 @@ fn table(ui: &mut egui::Ui, list: &[&Contributor], v: &mut View, auto: &mut Regi
             Some(col) => natural(ui, header_text(k), rows.iter().filter_map(|r| r.get(col).cloned())),
         })
         .collect();
-    fitted_table(ui, "credits_table", &widths, &CONTRIBUTOR_GROW)
+    // In an RTL interface the columns mirror: Name at the right, the counts and dates to its left.
+    let rtl = crate::i18n::current_is_rtl();
+    let mut grow = CONTRIBUTOR_GROW.to_vec();
+    if rtl {
+        widths.reverse();
+        grow.reverse();
+    }
+    let order: Vec<usize> = if rtl { (0..10).rev().collect() } else { (0..10).collect() };
+    fitted_table(ui, "credits_table", &widths, &grow)
         .header(h + 4.0, |mut header| {
-            for k in SortKey::ALL {
+            let keys: Vec<SortKey> = if rtl { SortKey::ALL.iter().rev().copied().collect() } else { SortKey::ALL.to_vec() };
+            for k in keys {
                 header.col(|ui| {
                     let text = header_text(k);
                     let r = aligned(ui, k != SortKey::Name, |ui| ui.selectable_label(v.key == k, text)).on_hover_text(tr(k.label().0));
@@ -436,14 +445,19 @@ fn table(ui: &mut egui::Ui, list: &[&Contributor], v: &mut View, auto: &mut Regi
         .body(|mut body| {
             for (c, cells) in list.iter().zip(rows) {
                 body.row(h, |mut row| {
-                    row.col(|ui| {
-                        let r = aligned(ui, false, |ui| ui.hyperlink_to(c.name(v.names), format!("https://github.com/{}", c.login))).on_hover_text(c.summary());
-                        auto.add(&format!("about.credits.contributor.{}", c.login), r.rect, &c.name(v.names));
-                    });
-                    for text in cells {
-                        row.col(|ui| {
-                            aligned(ui, true, |ui| ui.label(text));
-                        });
+                    // Column 0 is the name, 1.. the cells; in RTL they run in reverse.
+                    for &i in &order {
+                        if i == 0 {
+                            row.col(|ui| {
+                                let r = aligned(ui, false, |ui| ui.hyperlink_to(c.name(v.names), format!("https://github.com/{}", c.login))).on_hover_text(c.summary());
+                                auto.add(&format!("about.credits.contributor.{}", c.login), r.rect, &c.name(v.names));
+                            });
+                        } else {
+                            let text = cells[i - 1].clone();
+                            row.col(|ui| {
+                                aligned(ui, true, |ui| ui.label(text));
+                            });
+                        }
                     }
                 });
             }
@@ -474,12 +488,21 @@ pub fn models_ui(ui: &mut egui::Ui) {
             ]
         })
         .collect();
-    let widths: Vec<f32> =
+    let mut widths: Vec<f32> =
         titles.iter().enumerate().map(|(i, title)| natural(ui, RichText::new(*title).strong(), rows.iter().filter_map(|r| r.get(i).cloned()))).collect();
+    // In an RTL interface the columns mirror, as in the contributor table above.
+    let rtl = crate::i18n::current_is_rtl();
+    let mut grow = MODEL_GROW.to_vec();
+    if rtl {
+        widths.reverse();
+        grow.reverse();
+    }
+    let order: Vec<usize> = if rtl { (0..6).rev().collect() } else { (0..6).collect() };
     egui::ScrollArea::horizontal().auto_shrink([false, false]).show(ui, |ui| {
-        fitted_table(ui, "credits_models", &widths, &MODEL_GROW)
+        fitted_table(ui, "credits_models", &widths, &grow)
             .header(h + 4.0, |mut header| {
-                for (title, r) in titles.into_iter().zip(right) {
+                for &i in &order {
+                    let (title, r) = (titles[i], right[i]);
                     header.col(|ui| {
                         aligned(ui, r, |ui| ui.label(RichText::new(title).strong()));
                     });
@@ -488,7 +511,8 @@ pub fn models_ui(ui: &mut egui::Ui) {
             .body(|mut body| {
                 for cells in rows {
                     body.row(h, |mut row| {
-                        for (text, r) in cells.into_iter().zip(right) {
+                        for &i in &order {
+                            let (text, r) = (cells[i].clone(), right[i]);
                             row.col(|ui| {
                                 aligned(ui, r, |ui| ui.label(text));
                             });

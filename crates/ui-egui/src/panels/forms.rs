@@ -842,82 +842,102 @@ pub fn open_form(app: &mut EffectcraftApp, id: &str, p: &Value) -> bool {
     true
 }
 
-/// The label and control rows of a form: the part of [`show_form`] that scrolls.
+/// One form field's control, drawn in the grid's value cell. Returns the control's rect.
+fn form_field(
+    ui: &mut egui::Ui,
+    fl: &mut Field,
+    i: usize,
+    regs: &mut Vec<(String, egui::Rect, String)>,
+    browse: &mut Option<usize>,
+    focused: &mut bool,
+) -> egui::Rect {
+    match &mut fl.kind {
+        FieldKind::Number { value, speed } => {
+            let dec = if *speed < 0.01 { 5 } else { 3 };
+            let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(value).speed(*speed).max_decimals(dec)));
+            // The first field takes the keyboard when the form opens. (A number edits
+            // as text once focused; the selection is clamped to what it shows.)
+            if !std::mem::replace(focused, true) {
+                crate::widgets::focus_on_open(ui.ctx(), &r, &" ".repeat(64));
+            }
+            r.rect
+        }
+        FieldKind::Text(s) => {
+            let r = ui.add(egui::TextEdit::singleline(s).desired_width(220.0));
+            if !std::mem::replace(focused, true) {
+                crate::widgets::focus_on_open(ui.ctx(), &r, s);
+            }
+            r.rect
+        }
+        FieldKind::Path { value, .. } => {
+            crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
+                let r = ui.add(egui::TextEdit::singleline(value).desired_width(150.0)).rect;
+                let b = ui.button(tr("Browse…"));
+                regs.push((format!("form.field.{}.browse", fl.key), b.rect, "Browse…".into()));
+                if b.clicked() {
+                    *browse = Some(i);
+                }
+                r
+            })
+            .inner
+        }
+        FieldKind::SavePath(value) => {
+            crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
+                let r = ui.add(egui::TextEdit::singleline(value).desired_width(150.0)).rect;
+                let b = ui.button(tr("Browse…"));
+                regs.push((format!("form.field.{}.browse", fl.key), b.rect, "Browse…".into()));
+                if b.clicked() {
+                    *browse = Some(i);
+                }
+                r
+            })
+            .inner
+        }
+        // A fixed width: in the grid's value column a wrapping label would otherwise
+        // shrink to a word per line.
+        FieldKind::Note(text) => {
+            ui.scope(|ui| {
+                ui.set_width(220.0);
+                ui.add(egui::Label::new(egui::RichText::new(tr(text.as_str())).small()).wrap())
+            })
+            .inner
+            .rect
+        }
+        FieldKind::Bool(b) => crate::widgets::labelled_checkbox(ui, b, "").rect,
+        FieldKind::Choice { options, sel } => {
+            let cur = options.get(*sel).map(|o| o.0.clone()).unwrap_or_default();
+            // The column keeps its width: a long choice (a GPU adapter's name) ends in an
+            // ellipsis instead of widening the form past the dialog (#978).
+            craft_ui::ComboBox::from_id_salt(("form", fl.key.as_str()))
+                .selected_text(tr(&cur))
+                .width(240.0)
+                .truncate()
+                .show_ui(ui, |ui| {
+                    for (i, (l, _)) in options.iter().enumerate() {
+                        ui.selectable_value(sel, i, tr(l));
+                    }
+                })
+                .response
+                .rect
+        }
+    }
+}
+
+/// The label and control rows of a form: the part of [`show_form`] that scrolls. In an RTL
+/// interface the columns mirror: the field sits on the left and its label on the right.
 fn form_grid(ui: &mut egui::Ui, f: &mut Form, regs: &mut Vec<(String, egui::Rect, String)>, browse: &mut Option<usize>, focused: &mut bool) {
+    let rtl = crate::i18n::current_is_rtl();
     egui::Grid::new("form-grid").num_columns(2).spacing([14.0, 10.0]).show(ui, |ui| {
         for (i, fl) in f.fields.iter_mut().enumerate() {
-            ui.label(tr(&fl.label));
-            let r = match &mut fl.kind {
-                FieldKind::Number { value, speed } => {
-                    let dec = if *speed < 0.01 { 5 } else { 3 };
-                    let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(value).speed(*speed).max_decimals(dec)));
-                    // The first field takes the keyboard when the form opens. (A number edits
-                    // as text once focused; the selection is clamped to what it shows.)
-                    if !std::mem::replace(focused, true) {
-                        crate::widgets::focus_on_open(ui.ctx(), &r, &" ".repeat(64));
-                    }
-                    r.rect
-                }
-                FieldKind::Text(s) => {
-                    let r = ui.add(egui::TextEdit::singleline(s).desired_width(220.0));
-                    if !std::mem::replace(focused, true) {
-                        crate::widgets::focus_on_open(ui.ctx(), &r, s);
-                    }
-                    r.rect
-                }
-                FieldKind::Path { value, .. } => {
-                    ui.horizontal(|ui| {
-                        let r = ui.add(egui::TextEdit::singleline(value).desired_width(150.0)).rect;
-                        let b = ui.button(tr("Browse…"));
-                        regs.push((format!("form.field.{}.browse", fl.key), b.rect, "Browse…".into()));
-                        if b.clicked() {
-                            *browse = Some(i);
-                        }
-                        r
-                    })
-                    .inner
-                }
-                FieldKind::SavePath(value) => {
-                    ui.horizontal(|ui| {
-                        let r = ui.add(egui::TextEdit::singleline(value).desired_width(150.0)).rect;
-                        let b = ui.button(tr("Browse…"));
-                        regs.push((format!("form.field.{}.browse", fl.key), b.rect, "Browse…".into()));
-                        if b.clicked() {
-                            *browse = Some(i);
-                        }
-                        r
-                    })
-                    .inner
-                }
-                // A fixed width: in the grid's value column a wrapping label would otherwise
-                // shrink to a word per line.
-                FieldKind::Note(text) => {
-                    ui.scope(|ui| {
-                        ui.set_width(220.0);
-                        ui.add(egui::Label::new(egui::RichText::new(tr(text.as_str())).small()).wrap())
-                    })
-                    .inner
-                    .rect
-                }
-                FieldKind::Bool(b) => crate::widgets::labelled_checkbox(ui, b, "").rect,
-                FieldKind::Choice { options, sel } => {
-                    let cur = options.get(*sel).map(|o| o.0.clone()).unwrap_or_default();
-                    // The column keeps its width: a long choice (a GPU adapter's name) ends in an
-                    // ellipsis instead of widening the form past the dialog (#978).
-                    craft_ui::ComboBox::from_id_salt(("form", fl.key.as_str()))
-                        .selected_text(tr(&cur))
-                        .width(240.0)
-                        .truncate()
-                        .show_ui(ui, |ui| {
-                            for (i, (l, _)) in options.iter().enumerate() {
-                                ui.selectable_value(sel, i, tr(l));
-                            }
-                        })
-                        .response
-                        .rect
-                }
-            };
-            regs.push((format!("form.field.{}", fl.key), r, fl.label.clone()));
+            if rtl {
+                let r = form_field(ui, fl, i, regs, browse, focused);
+                ui.label(tr(&fl.label));
+                regs.push((format!("form.field.{}", fl.key), r, fl.label.clone()));
+            } else {
+                ui.label(tr(&fl.label));
+                let r = form_field(ui, fl, i, regs, browse, focused);
+                regs.push((format!("form.field.{}", fl.key), r, fl.label.clone()));
+            }
             ui.end_row();
         }
     });
@@ -948,7 +968,7 @@ pub fn show_form(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             form_grid(ui, &mut f, &mut regs, &mut browse, &mut focused);
         });
         ui.add_space(14.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             let b = ui.add(egui::Button::new(egui::RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(t.accent));
             regs.push(("form.ok".into(), b.rect, "OK".into()));
             if b.clicked() {
@@ -1014,7 +1034,7 @@ pub fn show_info(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     super::dialogs::modal_vertical(ctx, &title, vec2(440.0, 160.0), t, |ui| {
         ui.label(tr(&body));
         ui.add_space(16.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             if ui.add(egui::Button::new(egui::RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(t.accent)).clicked() {
                 close = true;
             }
@@ -1037,7 +1057,7 @@ pub fn show_view_options(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Toke
         crate::widgets::labelled_checkbox(ui, &mut v.safe_margins, tr("Title/action safe"));
         crate::widgets::labelled_checkbox(ui, &mut v.transparency_grid, tr("Transparency grid"));
         ui.add_space(12.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             if ui.add(egui::Button::new(egui::RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(t.accent)).clicked() {
                 close = true;
             }

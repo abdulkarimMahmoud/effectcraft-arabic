@@ -290,7 +290,13 @@ pub(crate) fn above_footer(ui: &mut egui::Ui, height: f32, footer: impl FnOnce(&
     foot.add_space(8.0);
     let body_h = (foot.min_rect().top() - area.top()).max(0.0);
     let room = Rect::from_min_size(area.min, vec2(area.width(), body_h));
-    let mut body = ui.new_child(egui::UiBuilder::new().max_rect(room).layout(egui::Layout::left_to_right(egui::Align::Min)));
+    // In RTL the body's first column (the page list, the command list) sits at the right edge.
+    let main = if crate::i18n::current_is_rtl() {
+        egui::Layout::right_to_left(egui::Align::Min)
+    } else {
+        egui::Layout::left_to_right(egui::Align::Min)
+    };
+    let mut body = ui.new_child(egui::UiBuilder::new().max_rect(room).layout(main));
     body.set_clip_rect(room.intersect(body.clip_rect()));
     (body, body_h)
 }
@@ -347,7 +353,7 @@ fn about(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     // Wide enough for every Contributors column at its natural width (modals shrink to the window).
     modal(ctx, "About EffectCraft", vec2(820.0, 520.0), t, |ui| {
         let mut tab = ui.data_mut(|d| d.get_temp::<usize>(tab_id)).unwrap_or(0);
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             for (i, (label, id)) in ABOUT_TABS.iter().enumerate() {
                 let r = ui.selectable_label(tab == i, *label);
                 app.auto.add(&format!("about.tab.{id}"), r.rect, label);
@@ -373,9 +379,9 @@ fn about(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             _ => about_main(app, ui, t, &mut cmd),
         }
         ui.add_space(8.0);
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(egui::RichText::new(tr("MIT OR Apache-2.0 • Fonts: Inter, JetBrains Mono (OFL)")).small().color(t.text_faint));
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
                 let r = ui.button(tr("Close"));
                 app.auto.add("about.close", r.rect, "Close");
                 if r.clicked() {
@@ -584,7 +590,7 @@ fn solid(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     let mut preview = app.dialog_state.live.on;
     let auto = &mut app.auto;
     modal_placed(ctx, "Solid Settings", vec2(480.0, if editing.is_some() { 430.0 } else { 390.0 }), t, place, |ui| {
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(tr("Name:"));
             let r = ui.add(egui::TextEdit::singleline(&mut name).desired_width(320.0));
             crate::widgets::focus_on_open(ui.ctx(), &r, &name);
@@ -592,24 +598,25 @@ fn solid(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
         });
         ui.add_space(8.0);
         ui.label(egui::RichText::new(tr("Size")).strong());
+        let rtl = crate::i18n::current_is_rtl();
         egui::Grid::new("solid-grid").num_columns(2).spacing([14.0, 8.0]).show(ui, |ui| {
             let (ow, oh) = (size[0], size[1]);
-            ui.label(tr("Width:"));
-            ui.horizontal(|ui| {
-                let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut size[0]).range(1..=30000).suffix(" px")));
-                auto.add("dialog.solid.width", r.rect, "Width");
-                let r = crate::widgets::labelled_checkbox(
-                    ui,
-                    &mut lock,
-                    tr_args("Lock Aspect Ratio to {}", &[&(super::comp_settings::aspect_label(ow as f64, oh as f64))]),
-                );
-                auto.add("dialog.solid.lockAspect", r.rect, "Lock Aspect Ratio");
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Width:")), |ui| {
+                crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
+                    let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut size[0]).range(1..=30000).suffix(" px")));
+                    auto.add("dialog.solid.width", r.rect, "Width");
+                    let r = crate::widgets::labelled_checkbox(
+                        ui,
+                        &mut lock,
+                        tr_args("Lock Aspect Ratio to {}", &[&(super::comp_settings::aspect_label(ow as f64, oh as f64))]),
+                    );
+                    auto.add("dialog.solid.lockAspect", r.rect, "Lock Aspect Ratio");
+                });
             });
-            ui.end_row();
-            ui.label(tr("Height:"));
-            let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut size[1]).range(1..=30000).suffix(" px")));
-            auto.add("dialog.solid.height", r.rect, "Height");
-            ui.end_row();
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Height:")), |ui| {
+                let r = ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut size[1]).range(1..=30000).suffix(" px")));
+                auto.add("dialog.solid.height", r.rect, "Height");
+            });
             if lock && ow > 0 && oh > 0 {
                 if size[0] != ow {
                     size[1] = ((size[0] as f64) * oh as f64 / ow as f64).round().max(1.0) as u32;
@@ -617,21 +624,21 @@ fn solid(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
                     size[0] = ((size[1] as f64) * ow as f64 / oh as f64).round().max(1.0) as u32;
                 }
             }
-            ui.label(tr("Pixel Aspect Ratio:"));
-            let cur = super::comp_settings::PIXEL_ASPECTS
-                .iter()
-                .find(|(_, v)| (v - par).abs() < 1e-3)
-                .map(|p| p.0.to_string())
-                .unwrap_or_else(|| format!("{par:.2}"));
-            let r = craft_ui::ComboBox::from_id_salt("solid-par").width(240.0).selected_text(cur).show_ui(ui, |ui| {
-                for (label, v) in super::comp_settings::PIXEL_ASPECTS {
-                    if ui.selectable_label((v - par).abs() < 1e-3, *label).clicked() {
-                        par = *v;
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Pixel Aspect Ratio:")), |ui| {
+                let cur = super::comp_settings::PIXEL_ASPECTS
+                    .iter()
+                    .find(|(_, v)| (v - par).abs() < 1e-3)
+                    .map(|p| p.0.to_string())
+                    .unwrap_or_else(|| format!("{par:.2}"));
+                let r = craft_ui::ComboBox::from_id_salt("solid-par").width(240.0).selected_text(cur).show_ui(ui, |ui| {
+                    for (label, v) in super::comp_settings::PIXEL_ASPECTS {
+                        if ui.selectable_label((v - par).abs() < 1e-3, *label).clicked() {
+                            par = *v;
+                        }
                     }
-                }
+                });
+                auto.add("dialog.solid.pixelAspect", r.response.rect, "Pixel Aspect Ratio");
             });
-            auto.add("dialog.solid.pixelAspect", r.response.rect, "Pixel Aspect Ratio");
-            ui.end_row();
         });
         let pct = |a: u32, b: u32| 100.0 * a as f64 / b.max(1) as f64;
         ui.label(
@@ -650,7 +657,7 @@ fn solid(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             size = [comp_size.0, comp_size.1];
         }
         ui.add_space(8.0);
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(tr("Color:"));
             let r = crate::widgets::srgb_color_button(ui, &mut color);
             auto.add("dialog.solid.color", r.rect, "Color");
@@ -666,7 +673,7 @@ fn solid(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             }
         }
         ui.add_space(14.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             let r = ui.add(egui::Button::new(egui::RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(t.accent));
             auto.add("dialog.solid.ok", r.rect, "OK");
             ok = r.clicked();

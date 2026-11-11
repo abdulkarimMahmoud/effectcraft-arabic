@@ -1,0 +1,8 @@
+asset:        IBMPlexSansArabic-Medium.ttf
+title:        IBM Plex Sans Arabic Medium (Arabic UI typeface, medium weight)
+author:       IBM Corp. (Plex Project Authors)
+source:       https://github.com/google/fonts/raw/main/ofl/ibmplexsansarabic/IBMPlexSansArabic-Medium.ttf
+license:      OFL-1.1
+license-file: assets/fonts/OFL-IBMPlexSansArabic.txt
+added:        2026-11-11 by Arena agent for EffectCraft Arabic localization
+notes:        Unmodified font file, sha256 b8363ab9f733dfa4f8e96b8b2102c24b5cf4110fb96d1d3d9a9412f6fb49cf74. Embedded via include_bytes! in crates/ui-egui/src/theme.rs as the medium-weight Arabic face for the named "medium" UI family.

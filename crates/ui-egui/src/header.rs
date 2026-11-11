@@ -491,7 +491,7 @@ fn create_on_double_click(app: &EffectcraftApp, tool: Tool) -> Option<(&'static 
 fn snapping_options(app: &mut EffectcraftApp, ui: &mut egui::Ui, r: Rect) {
     let t = app.tokens;
     let pop = egui::Id::unique("snap-options");
-    if widgets::icon_button(ui, r, Icon::ChevronDown, false, &t, egui::Id::unique("snap-options-button")).on_hover_text(tr("Snapping options")).clicked() {
+    if widgets::icon_button_mirrored(ui, r, Icon::ChevronDown, false, &t, egui::Id::unique("snap-options-button")).on_hover_text(tr("Snapping options")).clicked() {
         widgets::open_popup(ui, pop);
     }
     app.auto.add("header.snappingOptions", r, "Snapping options");

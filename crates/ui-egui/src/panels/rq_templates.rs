@@ -56,28 +56,29 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     let title = if st.output { "Output Module Templates" } else { "Render Settings Templates" };
     super::dialogs::modal(ctx, title, vec2(600.0, 560.0), t, |ui| {
         ui.label(egui::RichText::new(tr("Defaults")).font(Tokens::semibold(12.5)).color(t.text));
+        let rtl = crate::i18n::current_is_rtl();
         egui::Grid::new("tpl-defaults").num_columns(2).spacing(vec2(14.0, 6.0)).show(ui, |ui| {
             for slot in TemplateSlot::ALL {
-                ui.label(slot.label());
-                let cur = templates.default_name(k, slot);
-                let mut pick = cur.clone();
-                let r = craft_ui::ComboBox::from_id_salt(("tpl-def", slot.label())).selected_text(&cur).width(300.0).show_ui(ui, |ui| {
-                    for n in &list {
-                        ui.selectable_value(&mut pick, n.clone(), n);
+                crate::widgets::grid_row(ui, rtl, |ui| ui.label(slot.label()), |ui| {
+                    let cur = templates.default_name(k, slot);
+                    let mut pick = cur.clone();
+                    let r = craft_ui::ComboBox::from_id_salt(("tpl-def", slot.label())).selected_text(&cur).width(300.0).show_ui(ui, |ui| {
+                        for n in &list {
+                            ui.selectable_value(&mut pick, n.clone(), n);
+                        }
+                    });
+                    a11y::combo_box(&r.response, slot.label(), &cur, true);
+                    app.auto.add(&format!("templates.default.{slot:?}"), r.response.rect, &cur);
+                    if pick != cur {
+                        actions.push(("renderQueue.setTemplateDefault", json!({"kind": kind, "slot": format!("{slot:?}"), "name": pick})));
                     }
                 });
-                a11y::combo_box(&r.response, slot.label(), &cur, true);
-                app.auto.add(&format!("templates.default.{slot:?}"), r.response.rect, &cur);
-                if pick != cur {
-                    actions.push(("renderQueue.setTemplateDefault", json!({"kind": kind, "slot": format!("{slot:?}"), "name": pick})));
-                }
-                ui.end_row();
             }
         });
         ui.add_space(12.0);
         ui.separator();
         ui.label(egui::RichText::new(tr("Settings")).font(Tokens::semibold(12.5)).color(t.text));
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(tr("Settings Name:"));
             let r = craft_ui::ComboBox::from_id_salt("tpl-select").selected_text(&st.selected).width(300.0).show_ui(ui, |ui| {
                 for n in &list {
@@ -104,14 +105,14 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             egui::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
                 egui::Grid::new("tpl-lines").num_columns(2).spacing(vec2(12.0, 2.0)).show(ui, |ui| {
                     for (k, v) in &lines {
-                        ui.label(egui::RichText::new(*k).color(t.text_dim).size(11.5));
-                        ui.label(egui::RichText::new(v).size(11.5));
-                        ui.end_row();
+                        crate::widgets::grid_row(ui, rtl, |ui| ui.label(egui::RichText::new(*k).color(t.text_dim).size(11.5)), |ui| {
+                            ui.label(egui::RichText::new(v).size(11.5));
+                        });
                     }
                 });
             });
         });
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             let r = ui.button(tr("Duplicate"));
             app.auto.add("templates.duplicate", r.rect, "Duplicate");
             if r.clicked() {
@@ -137,7 +138,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
         ui.separator();
         // New template from the selected (or only) Render Queue item.
         let queue = &app.session.project.render_queue;
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(tr("New from Render Queue item:"));
             let r = ui.add(egui::TextEdit::singleline(&mut st.new_name).hint_text(tr("template name")).desired_width(180.0));
             a11y::text_input(&r, tr("template name"), &st.new_name);
@@ -155,7 +156,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             }
         });
         ui.add_space(12.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             let r = ui.add(egui::Button::new(egui::RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(t.accent));
             app.auto.add("templates.ok", r.rect, "OK");
             close = r.clicked();

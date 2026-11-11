@@ -264,7 +264,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     super::dialogs::modal_fit(ctx, "Keyboard Shortcuts", vec2(1000.0, 760.0), t, |ui, height| {
         let top = ui.cursor().top();
         // ---- preset bar
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(tr("Preset:"));
             let r = craft_ui::ComboBox::from_id_salt("sc-preset").selected_text(&active).width(220.0).show_ui(ui, |ui| {
                 for n in &presets {
@@ -322,7 +322,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
         });
         ui.add_space(6.0);
         // ---- modifiers + legend
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(tr("Modifiers:"));
             let names = if cfg!(target_os = "macos") { ["⌃ Ctrl", "⌘ Cmd", "⌥ Opt", "⇧ Shift"] } else { ["", "Ctrl", "Alt", "Shift"] };
             for (i, (n, id)) in names.iter().zip(["ctrl", "cmd", "alt", "shift"]).enumerate() {
@@ -444,7 +444,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
         }
         ui.add_space(4.0);
         // ---- search + command list + editor
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             let r = ui.add(egui::TextEdit::singleline(&mut st.query).hint_text(tr("Search commands or shortcuts")).desired_width(360.0));
             crate::widgets::focus_on_open(ui.ctx(), &r, &st.query);
             app.auto.add("shortcuts.search", r.rect, "Search");
@@ -465,7 +465,12 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             .collect();
         let footer = 6.0 + ui.spacing().interact_size.y + ui.spacing().item_spacing.y * 2.0;
         let list_h = (height - (ui.cursor().top() - top) - footer).max(140.0);
-        ui.allocate_ui_with_layout(vec2(ui.available_width(), list_h), egui::Layout::left_to_right(egui::Align::Min), |ui| {
+        let main = if crate::i18n::current_is_rtl() {
+            egui::Layout::right_to_left(egui::Align::Min)
+        } else {
+            egui::Layout::left_to_right(egui::Align::Min)
+        };
+        ui.allocate_ui_with_layout(vec2(ui.available_width(), list_h), main, |ui| {
             ui.set_height(list_h);
             // Command list.
             ui.vertical(|ui| {
@@ -487,13 +492,20 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
                                 ui.painter().rect_filled(r, 0.0, t.row_alt);
                             }
                             let pp = ui.painter();
-                            pp.text(pos2(r.min.x + 6.0, r.center().y), Align2::LEFT_CENTER, &b.label, Tokens::ui(11.5), t.text);
-                            pp.text(pos2(r.min.x + 230.0, r.center().y), Align2::LEFT_CENTER, b.path.join(" > "), Tokens::ui(10.5), t.text_faint);
+                            // In RTL the command name sits at the right edge and the shortcut at
+                            // the left, like every other list in the interface.
+                            let (name_pos, name_align, path_pos, keys_pos, keys_align) = if crate::i18n::current_is_rtl() {
+                                (pos2(r.max.x - 6.0, r.center().y), Align2::RIGHT_CENTER, pos2(r.max.x - 230.0, r.center().y), pos2(r.min.x + 8.0, r.center().y), Align2::LEFT_CENTER)
+                            } else {
+                                (pos2(r.min.x + 6.0, r.center().y), Align2::LEFT_CENTER, pos2(r.min.x + 230.0, r.center().y), pos2(r.max.x - 8.0, r.center().y), Align2::RIGHT_CENTER)
+                            };
+                            pp.text(name_pos, name_align, &b.label, Tokens::ui(11.5), t.text);
+                            pp.text(path_pos, name_align, b.path.join(" > "), Tokens::ui(10.5), t.text_faint);
                             let ks: Vec<String> = keys.iter().map(|k| crate::menus::shortcut_text(k)).collect();
                             let col = if b.scope == APP_SCOPE { APP_COLOR } else { PANEL_COLOR };
                             pp.text(
-                                pos2(r.max.x - 8.0, r.center().y),
-                                Align2::RIGHT_CENTER,
+                                keys_pos,
+                                keys_align,
                                 ks.join(", "),
                                 Tokens::ui(11.5),
                                 if keys.is_empty() { t.text_faint } else { col },
@@ -524,7 +536,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
                     ui.label(RichText::new(tr("No shortcut")).color(t.text_dim));
                 }
                 for (n, k) in keys.iter().enumerate() {
-                    ui.horizontal(|ui| {
+                    crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                         ui.label(RichText::new(crate::menus::shortcut_text(k)).monospace());
                         let r = ui.small_button("Remove");
                         app.auto.add(&format!("shortcuts.removeKey.{n}"), r.rect, "Remove");
@@ -535,7 +547,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
                     });
                 }
                 ui.add_space(6.0);
-                ui.horizontal(|ui| {
+                crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                     let hint = if st.recording { "Press keys…" } else { "Click, then press keys" };
                     let r = ui.add(egui::TextEdit::singleline(&mut st.pending).hint_text(hint).desired_width(170.0));
                     app.auto.add("shortcuts.record", r.rect, "Shortcut");
@@ -586,7 +598,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             });
         });
         ui.add_space(6.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             let r = ui.add(egui::Button::new(RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(t.accent));
             app.auto.add("shortcuts.close", r.rect, "OK");
             close |= r.clicked();
@@ -600,7 +612,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             ui.add_space(4.0);
             ui.label(RichText::new(tr("You can't undo this.")).color(t.text_dim).size(11.0));
             ui.add_space(18.0);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
                 let r = ui.add(egui::Button::new(RichText::new(tr("  Delete  ")).color(Color32::WHITE)).fill(t.danger));
                 app.auto.add("dialog.deletePreset.delete", r.rect, "Delete");
                 if r.clicked() {

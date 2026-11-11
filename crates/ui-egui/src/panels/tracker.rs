@@ -486,7 +486,7 @@ pub fn open_target(app: &mut EffectcraftApp) -> Result<(), String> {
 fn ok_cancel(ui: &mut egui::Ui, app: &mut EffectcraftApp, t: &Tokens, prefix: &str) -> (bool, bool) {
     let (mut ok, mut cancel) = (false, false);
     ui.add_space(14.0);
-    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
         let r = ui.add(egui::Button::new(egui::RichText::new(crate::i18n::tr("   OK   ")).color(Color32::WHITE)).fill(t.accent));
         app.auto.add(&format!("{prefix}.ok"), r.rect, "OK");
         ok = r.clicked();
@@ -501,14 +501,14 @@ pub fn options_dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens)
     let mut d = app.dialog_state.track_options.clone();
     let (mut ok, mut cancel) = (false, false);
     super::dialogs::modal(ctx, "Motion Tracker Options", vec2(460.0, 470.0), t, |ui| {
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(crate::i18n::tr("Track Name:"));
             let r = ui.text_edit_singleline(&mut d.name);
             app.auto.add("dialog.trackOptions.name", r.rect, "Track Name");
         });
         ui.add_space(8.0);
         ui.label(egui::RichText::new(crate::i18n::tr("Channel")).font(Tokens::medium(12.5)));
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             for (c, l) in [(TrackChannel::Rgb, "RGB"), (TrackChannel::Luminance, "Luminance"), (TrackChannel::Saturation, "Saturation")] {
                 let r = ui.radio_value(&mut d.opts.channel, c, l);
                 app.auto.add(&format!("dialog.trackOptions.channel.{}", l.to_ascii_lowercase()), r.rect, l);
@@ -516,7 +516,7 @@ pub fn options_dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens)
         });
         ui.add_space(8.0);
         ui.label(egui::RichText::new(crate::i18n::tr("Process Before Match")).font(Tokens::medium(12.5)));
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             let r = crate::widgets::labelled_checkbox(ui, &mut d.blur_on, crate::i18n::tr("Blur"));
             app.auto.add("dialog.trackOptions.blurOn", r.rect, "Blur");
             let r =
@@ -533,7 +533,7 @@ pub fn options_dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens)
         let r = crate::widgets::labelled_checkbox(ui, &mut d.opts.track_shape, crate::i18n::tr("Follow Feature Rotation and Scale"));
         app.auto.add("dialog.trackOptions.trackShape", r.rect, "Follow Feature Rotation and Scale");
         ui.add_space(8.0);
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             let actions = [
                 (LowConfidence::Continue, "Continue Tracking"),
                 (LowConfidence::Stop, "Stop Tracking"),
@@ -591,7 +591,7 @@ pub fn target_dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) 
         app.session.active_comp().map(|c| c.layers.iter().enumerate().map(|(i, l)| (l.id.0, format!("{}. {}", i + 1, l.name))).collect()).unwrap_or_default();
     super::dialogs::modal(ctx, "Motion Target", vec2(400.0, 200.0), t, |ui| {
         ui.label(crate::i18n::tr("Apply Motion To:"));
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(crate::i18n::tr("Layer:"));
             let cur = d.target.and_then(|id| layers.iter().find(|(l, _)| *l == id)).map(|(_, n)| n.clone()).unwrap_or_else(|| "None".into());
             let r = craft_ui::ComboBox::from_id_salt("track-target")
@@ -624,7 +624,7 @@ pub fn apply_dialog(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     let mut d = app.dialog_state.track_apply.clone();
     let (mut ok, mut cancel) = (false, false);
     super::dialogs::modal(ctx, "Motion Tracker Apply Options", vec2(380.0, 170.0), t, |ui| {
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(crate::i18n::tr("Apply Dimensions:"));
             let labels = [crate::i18n::tr("X and Y"), crate::i18n::tr("X only"), crate::i18n::tr("Y only")];
             let r = craft_ui::ComboBox::from_id_salt("track-apply-dims")

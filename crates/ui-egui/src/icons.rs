@@ -133,6 +133,9 @@ pub struct Pen16<'a> {
     rect: Rect,
     color: Color32,
     width: f32,
+    /// Mirror horizontally (x → 16 − x): disclosure chevrons point toward the reading direction
+    /// in an RTL interface. Media transport is never mirrored (see [`paint_mirrored`]).
+    mirror: bool,
 }
 
 impl Pen16<'_> {
@@ -142,6 +145,7 @@ impl Pen16<'_> {
     fn p(&self, x: f32, y: f32) -> Pos2 {
         let s = self.s();
         let o = self.rect.center() - vec2(8.0 * s, 8.0 * s);
+        let x = if self.mirror { 16.0 - x } else { x };
         pos2(o.x + x * s, o.y + y * s)
     }
     fn line(&self, pts: &[(f32, f32)]) {
@@ -242,7 +246,20 @@ const CONCAVE: [Pieces; 3] = [SELECTION_ARROW, SPEAKER, SPARKLE];
 
 /// Paint `icon` centred in `rect`.
 pub fn paint(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
-    let pen = Pen16 { painter, rect, color, width: 1.25 };
+    let pen = Pen16 { painter, rect, color, width: 1.25, mirror: false };
+    draw(&pen, icon);
+}
+
+/// Paint `icon` centred in `rect`, mirrored horizontally: disclosure chevrons point toward the
+/// reading direction in an RTL interface. Media transport (Play, StepBack, StepFwd, First, Last)
+/// is never mirrored: it follows the timeline's left-to-right time axis, as in Arabic After
+/// Effects.
+pub fn paint_mirrored(painter: &Painter, rect: Rect, icon: Icon, color: Color32) {
+    let pen = Pen16 { painter, rect, color, width: 1.25, mirror: true };
+    draw(&pen, icon);
+}
+
+fn draw(pen: &Pen16, icon: Icon) {
     use Icon::*;
     match icon {
         Home => {

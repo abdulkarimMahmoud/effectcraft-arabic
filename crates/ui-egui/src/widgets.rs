@@ -305,6 +305,33 @@ pub fn icon_button(ui: &mut Ui, rect: Rect, icon: Icon, active: bool, t: &Tokens
     resp
 }
 
+/// Like [`icon_button`], but mirrors the icon horizontally in an RTL interface (for directional
+/// chevrons and arrows). Symmetric icons (home, trash, plus) are unaffected by the mirror.
+pub fn icon_button_mirrored(ui: &mut Ui, rect: Rect, icon: Icon, active: bool, t: &Tokens, id: egui::Id) -> Response {
+    let resp = ui.interact(rect, id, Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::Button, ui.is_enabled(), active, ""));
+    if active {
+        ui.painter().rect_filled(rect, 4.0, t.accent);
+    } else if resp.hovered() {
+        ui.painter().rect_filled(rect, 4.0, t.hover);
+    }
+    let col = if active {
+        Color32::WHITE
+    } else if resp.hovered() {
+        t.icon_active
+    } else {
+        t.icon
+    };
+    if crate::i18n::current_is_rtl() {
+        icons::paint_mirrored(ui.painter(), rect.shrink(rect.width() * 0.22), icon, col);
+    } else {
+        icons::paint(ui.painter(), rect.shrink(rect.width() * 0.22), icon, col);
+    }
+    crate::a11y::role(&resp, egui::accesskit::Role::Button);
+    focus_outline(ui, &resp, t);
+    resp
+}
+
 /// Keep keyboard focus visible on custom-painted controls, including their active state.
 pub fn focus_outline(ui: &Ui, response: &Response, t: &Tokens) {
     if response.has_focus() {
@@ -340,10 +367,16 @@ fn field(ui: &mut Ui, rect: Rect, text: &mut String, hint: &str, t: &Tokens, sea
     let h = rect.height();
     ui.painter().rect_filled(rect, h / 2.0, t.field_bg);
     ui.painter().rect_stroke(rect, h / 2.0, Stroke::new(1.0, t.field_border), StrokeKind::Inside);
+    // In an RTL interface the magnifier sits at the right and the text aligns right.
+    let rtl = crate::i18n::current_is_rtl();
     if search {
-        icons::paint(ui.painter(), Rect::from_center_size(pos2(rect.min.x + 12.0, rect.center().y), vec2(12.0, 12.0)), Icon::Search, t.text_dim);
+        icons::paint(ui.painter(), Rect::from_center_size(pos2(if rtl { rect.max.x - 12.0 } else { rect.min.x + 12.0 }, rect.center().y), vec2(12.0, 12.0)), Icon::Search, t.text_dim);
     }
-    let inner = Rect::from_min_max(pos2(rect.min.x + if search { 22.0 } else { 9.0 }, rect.min.y + 1.0), pos2(rect.max.x - 8.0, rect.max.y - 1.0));
+    let inner = if rtl {
+        Rect::from_min_max(pos2(rect.min.x + 8.0, rect.min.y + 1.0), pos2(rect.max.x - if search { 22.0 } else { 9.0 }, rect.max.y - 1.0))
+    } else {
+        Rect::from_min_max(pos2(rect.min.x + if search { 22.0 } else { 9.0 }, rect.min.y + 1.0), pos2(rect.max.x - 8.0, rect.max.y - 1.0))
+    };
     let mut child = ui.new_child(egui::UiBuilder::new().max_rect(inner));
     let resp = child.add(
         egui::TextEdit::singleline(text)
@@ -353,7 +386,7 @@ fn field(ui: &mut Ui, rect: Rect, text: &mut String, hint: &str, t: &Tokens, sea
             // As tall as the field, so the text and the hint sit on its middle (they sat high, #581).
             .min_size(inner.size())
             .font(Tokens::ui(12.0))
-            .align(egui::Align2::LEFT_CENTER),
+            .align(if rtl { egui::Align2::RIGHT_CENTER } else { egui::Align2::LEFT_CENTER }),
     );
     // The hint is the field's visible name (the caller can give it a better one).
     crate::a11y::name(&resp, hint);
@@ -395,8 +428,15 @@ pub fn dropdown_tip(ui: &mut Ui, rect: Rect, text: &str, tip: Option<&str>, t: &
             }
         }
     };
-    ui.painter().text(pos2(rect.min.x + 7.0, rect.center().y), Align2::LEFT_CENTER, shown, Tokens::ui(11.5), t.text);
-    icons::paint(ui.painter(), Rect::from_center_size(pos2(rect.max.x - 9.0, rect.center().y), vec2(8.0, 8.0)), Icon::ChevronDown, t.text_dim);
+    // In an RTL interface the value aligns right and the chevron sits at the left.
+    let rtl = crate::i18n::current_is_rtl();
+    let (text_pos, text_align, chevron_x) = if rtl {
+        (pos2(rect.max.x - 7.0, rect.center().y), Align2::RIGHT_CENTER, rect.min.x + 9.0)
+    } else {
+        (pos2(rect.min.x + 7.0, rect.center().y), Align2::LEFT_CENTER, rect.max.x - 9.0)
+    };
+    ui.painter().text(text_pos, text_align, shown, Tokens::ui(11.5), t.text);
+    icons::paint(ui.painter(), Rect::from_center_size(pos2(chevron_x, rect.center().y), vec2(8.0, 8.0)), Icon::ChevronDown, t.text_dim);
     // A drop-down showing `text`; the caller names what it sets.
     crate::a11y::role(&resp, egui::accesskit::Role::ComboBox);
     crate::a11y::value(&resp, text);
@@ -786,7 +826,12 @@ pub fn paint_label_swatch(ui: &Ui, out: &egui::WidgetAtomResponse, l: effectcraf
 
 /// A Label menu row: label `l`'s swatch then `name`, highlighted when it is the `current` label.
 pub fn label_entry(ui: &mut Ui, l: effectcraft_engine::color::Label, name: &str, current: bool, t: &Tokens) -> Response {
-    let out = egui::Button::selectable(current, (label_swatch(), name)).atom_ui(ui);
+    // In RTL the swatch sits at the right and the name reads right-to-left.
+    let out = if crate::i18n::current_is_rtl() {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| egui::Button::selectable(current, (name, label_swatch())).atom_ui(ui)).inner
+    } else {
+        egui::Button::selectable(current, (label_swatch(), name)).atom_ui(ui)
+    };
     paint_label_swatch(ui, &out, l, t);
     out.response
 }
@@ -855,7 +900,12 @@ pub fn popup_menu(ui: &mut Ui, id: egui::Id, pos: egui::Pos2, options: &[String]
             if o == "-" {
                 ui.separator();
             } else {
-                let r = ui.selectable_label(current == Some(i), o);
+                // In RTL the option text aligns to the right edge of the popup.
+                let r = if crate::i18n::current_is_rtl() {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.selectable_label(current == Some(i), o)).inner
+                } else {
+                    ui.selectable_label(current == Some(i), o)
+                };
                 // The keyboard starts on the current entry (the first one, with none current).
                 if current == Some(i) || (current.is_none() && first) {
                     focus_when_opened(ui, id, &r);
@@ -919,7 +969,14 @@ pub fn popup_list<R>(ui: &mut Ui, id: egui::Id, pos: egui::Pos2, anchor: Rect, r
     let max_h = (screen.height() - 24.0).max(120.0);
     let sp = ui.spacing();
     let est = (rows as f32 * (sp.interact_size.y + sp.item_spacing.y + 4.0) + seps as f32 * (2.0 * sp.item_spacing.y + 2.0) + 16.0).min(max_h + 12.0);
-    let pos = egui::pos2(pos.x, pos.y.min(screen.bottom() - est).max(screen.top()));
+    // In RTL the popup opens from the anchor's right edge and grows leftwards, so a caller
+    // passing the anchor's left edge (the usual LTR anchor) still lands under the anchor.
+    let pos = if crate::i18n::current_is_rtl() && anchor != Rect::NOTHING {
+        let x = anchor.right() - pos.x;
+        egui::pos2(x, pos.y.min(screen.bottom() - est).max(screen.top()))
+    } else {
+        egui::pos2(pos.x, pos.y.min(screen.bottom() - est).max(screen.top()))
+    };
     let mut chosen = None;
     let area = egui::Area::new(id.with("area")).order(egui::Order::Foreground).fixed_pos(pos).show(ui.ctx(), |ui| {
         egui::Frame::popup(ui.style()).show(ui, |ui| {
@@ -1060,6 +1117,66 @@ pub fn menu_style(style: &mut egui::Style) {
 /// `resp`'s context menu in the app's [`menu_style`] (its submenus inherit it).
 pub fn context_menu(resp: &Response, add_contents: impl FnOnce(&mut Ui)) -> Option<egui::InnerResponse<()>> {
     egui::Popup::context_menu(resp).style(menu_style).show(add_contents)
+}
+
+/// A horizontal row, mirrored in an RTL interface (widgets flow right-to-left). In LTR this is
+/// exactly [`Ui::horizontal`]. Use it for dialog rows (labels, controls, buttons, tabs); the
+/// timeline, graph editor and viewer keep their left-to-right axes and never use it.
+pub fn h_row<R>(ui: &mut Ui, rtl: bool, add_contents: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<R> {
+    if rtl {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), add_contents)
+    } else {
+        ui.horizontal(add_contents)
+    }
+}
+
+/// [`h_row`], but wrapping: for rows of buttons and links that flow onto the next line.
+pub fn h_row_wrapped<R>(ui: &mut Ui, rtl: bool, add_contents: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<R> {
+    if rtl {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.horizontal_wrapped(add_contents))
+    } else {
+        ui.horizontal_wrapped(add_contents)
+    }
+}
+
+/// A label and its control in one horizontal row, mirrored in an RTL interface: the control
+/// sits on the left and the label on the right (mirrored chrome, as the form grid does); in LTR
+/// the label comes first. Returns the label's response and the control's return value.
+pub fn labelled_row<R>(ui: &mut Ui, rtl: bool, label: impl FnOnce(&mut Ui) -> Response, control: impl FnOnce(&mut Ui) -> R) -> (Response, R) {
+    if rtl {
+        let control_ret = control(ui);
+        let label_resp = label(ui);
+        (label_resp, control_ret)
+    } else {
+        let label_resp = label(ui);
+        let control_ret = control(ui);
+        (label_resp, control_ret)
+    }
+}
+
+/// A submenu button in the app's [`menu_style`]: the label with a `▸` arrow at the reading end
+/// (right in LTR, left in RTL). Use it inside a menu, where [`egui::Ui::menu_button`] draws a
+/// submenu; outside a menu use [`menu_button`].
+pub fn submenu_button<'a, R>(ui: &mut Ui, label: impl IntoAtoms<'a>, add_contents: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<Option<R>> {
+    let config = egui::containers::menu::MenuConfig::new().style(menu_style);
+    let arrow = egui::containers::menu::SubMenuButton::arrow_atom(None);
+    let button = if crate::i18n::current_is_rtl() {
+        egui::Button::new(label).left_text(arrow)
+    } else {
+        egui::Button::new(label).right_text(arrow)
+    };
+    let (response, inner) = egui::containers::menu::SubMenuButton::from_button(button).config(config).ui(ui, add_contents);
+    egui::InnerResponse::new(inner.map(|i| i.inner), response)
+}
+
+
+/// One row of a two-column dialog grid: the `label` and its `control` (see [`labelled_row`]),
+/// ended with [`Ui::end_row`]. A row with only a label (a section header) passes an empty
+/// control: in RTL the label then sits in the right column.
+pub fn grid_row<R>(ui: &mut Ui, rtl: bool, label: impl FnOnce(&mut Ui) -> Response, control: impl FnOnce(&mut Ui) -> R) -> (Response, R) {
+    let ret = labelled_row(ui, rtl, label, control);
+    ui.end_row();
+    ret
 }
 
 /// A button opening a menu in the app's [`menu_style`], for one outside the menu bar.

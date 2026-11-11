@@ -168,7 +168,7 @@ pub fn open_light(app: &mut EffectcraftApp, layer: Option<u64>) -> Result<(), St
 
 fn buttons(ui: &mut egui::Ui, t: &Tokens, ok: &mut bool, close: &mut bool, preview: Option<&mut bool>) -> (egui::Rect, egui::Rect, egui::Rect) {
     let mut r = (egui::Rect::NOTHING, egui::Rect::NOTHING, egui::Rect::NOTHING);
-    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
         let b = ui.add(egui::Button::new(egui::RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(t.accent));
         r.0 = b.rect;
         if b.clicked() {
@@ -195,56 +195,57 @@ pub fn camera(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     let place = super::live_preview::place(app);
     let mut preview = app.dialog_state.live.on;
     super::dialogs::modal_placed(ctx, "Camera Settings", vec2(520.0, 420.0), t, place, |ui| {
+        let rtl = crate::i18n::current_is_rtl();
         egui::Grid::new("cam-grid").num_columns(2).spacing([14.0, 9.0]).show(ui, |ui| {
-            ui.label(tr("Type"));
-            craft_ui::ComboBox::from_id_salt("cam-type").selected_text(if d.two_node { "Two-Node Camera" } else { "One-Node Camera" }).show_ui(ui, |ui| {
-                ui.selectable_value(&mut d.two_node, true, tr("Two-Node Camera"));
-                ui.selectable_value(&mut d.two_node, false, tr("One-Node Camera"));
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Type")), |ui| {
+                craft_ui::ComboBox::from_id_salt("cam-type").selected_text(if d.two_node { "Two-Node Camera" } else { "One-Node Camera" }).show_ui(ui, |ui| {
+                    ui.selectable_value(&mut d.two_node, true, tr("Two-Node Camera"));
+                    ui.selectable_value(&mut d.two_node, false, tr("One-Node Camera"));
+                });
             });
-            ui.end_row();
-            ui.label(tr("Name"));
-            let r = ui.add(egui::TextEdit::singleline(&mut d.name).desired_width(240.0));
-            crate::widgets::focus_on_open(ui.ctx(), &r, &d.name);
-            ui.end_row();
-            ui.label(tr("Preset"));
-            let focal = focal_for_zoom(w, d.zoom);
-            let cur = PRESETS.iter().find(|(_, f)| (f - focal).abs() < 1e-6).map(|(n, _)| *n).unwrap_or("Custom");
-            craft_ui::ComboBox::from_id_salt("cam-preset").selected_text(cur).show_ui(ui, |ui| {
-                for (n, f) in PRESETS {
-                    if ui.selectable_label(cur == n, n).clicked() {
-                        d.zoom = zoom_for_focal(w, f);
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Name")), |ui| {
+                let r = ui.add(egui::TextEdit::singleline(&mut d.name).desired_width(240.0));
+                crate::widgets::focus_on_open(ui.ctx(), &r, &d.name);
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Preset")), |ui| {
+                let focal = focal_for_zoom(w, d.zoom);
+                let cur = PRESETS.iter().find(|(_, f)| (f - focal).abs() < 1e-6).map(|(n, _)| *n).unwrap_or("Custom");
+                craft_ui::ComboBox::from_id_salt("cam-preset").selected_text(cur).show_ui(ui, |ui| {
+                    for (n, f) in PRESETS {
+                        if ui.selectable_label(cur == n, n).clicked() {
+                            d.zoom = zoom_for_focal(w, f);
+                        }
                     }
-                }
+                });
             });
-            ui.end_row();
-            ui.label(tr("Zoom"));
-            ui.horizontal(|ui| {
-                ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.zoom).range(1.0..=100000.0).speed(1.0).suffix(" px")));
-                let mut aov = angle_of_view(w, d.zoom);
-                if ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut aov).range(0.1..=179.0).speed(0.1).suffix("°"))).changed() {
-                    d.zoom = w * 0.5 / (aov.to_radians() * 0.5).tan();
-                }
-                let mut fl = focal_for_zoom(w, d.zoom);
-                if ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut fl).range(0.1..=10000.0).speed(0.1).suffix(" mm"))).changed() {
-                    d.zoom = zoom_for_focal(w, fl);
-                }
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Zoom")), |ui| {
+                crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
+                    ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.zoom).range(1.0..=100000.0).speed(1.0).suffix(" px")));
+                    let mut aov = angle_of_view(w, d.zoom);
+                    if ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut aov).range(0.1..=179.0).speed(0.1).suffix("°"))).changed() {
+                        d.zoom = w * 0.5 / (aov.to_radians() * 0.5).tan();
+                    }
+                    let mut fl = focal_for_zoom(w, d.zoom);
+                    if ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut fl).range(0.1..=10000.0).speed(0.1).suffix(" mm"))).changed() {
+                        d.zoom = zoom_for_focal(w, fl);
+                    }
+                });
             });
-            ui.end_row();
-            ui.label(tr("Depth of Field"));
-            crate::widgets::labelled_checkbox(ui, &mut d.dof, tr("Enable Depth of Field"));
-            ui.end_row();
-            ui.label(tr("Focus Distance"));
-            ui.horizontal(|ui| {
-                ui.add_enabled(!d.lock_to_zoom, crate::widgets::drag_value(egui::DragValue::new(&mut d.focus).range(0.0..=100000.0).suffix(" px")));
-                crate::widgets::labelled_checkbox(ui, &mut d.lock_to_zoom, tr("Lock to Zoom"));
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Depth of Field")), |ui| {
+                crate::widgets::labelled_checkbox(ui, &mut d.dof, tr("Enable Depth of Field"));
             });
-            ui.end_row();
-            ui.label(tr("Aperture"));
-            ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.aperture).range(0.0..=10000.0).speed(0.1).suffix(" px")));
-            ui.end_row();
-            ui.label(tr("Blur Level"));
-            ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.blur).range(0.0..=10000.0).suffix(" %")));
-            ui.end_row();
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Focus Distance")), |ui| {
+                crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
+                    ui.add_enabled(!d.lock_to_zoom, crate::widgets::drag_value(egui::DragValue::new(&mut d.focus).range(0.0..=100000.0).suffix(" px")));
+                    crate::widgets::labelled_checkbox(ui, &mut d.lock_to_zoom, tr("Lock to Zoom"));
+                });
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Aperture")), |ui| {
+                ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.aperture).range(0.0..=10000.0).speed(0.1).suffix(" px")));
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Blur Level")), |ui| {
+                ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.blur).range(0.0..=10000.0).suffix(" %")));
+            });
         });
         ui.add_space(14.0);
         rects = buttons(ui, t, &mut ok, &mut close, live.then_some(&mut preview));
@@ -307,62 +308,63 @@ pub fn light(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     let place = super::live_preview::place(app);
     let mut preview = app.dialog_state.live.on;
     super::dialogs::modal_placed(ctx, "Light Settings", vec2(480.0, 470.0), t, place, |ui| {
+        let rtl = crate::i18n::current_is_rtl();
         egui::Grid::new("light-grid").num_columns(2).spacing([14.0, 9.0]).show(ui, |ui| {
-            ui.label(tr("Name"));
-            let r = ui.add(egui::TextEdit::singleline(&mut d.name).desired_width(220.0));
-            crate::widgets::focus_on_open(ui.ctx(), &r, &d.name);
-            ui.end_row();
-            ui.label(tr("Light Type"));
-            let combo = craft_ui::ComboBox::from_id_salt("light-type").selected_text(tr(d.kind.label())).show_ui(ui, |ui| {
-                for (i, k) in LightKind::ALL.into_iter().enumerate() {
-                    let item = ui.selectable_value(&mut d.kind, k, tr(k.label()));
-                    app.auto.add(&format!("dialog.light.typeItem.{i}"), item.rect, k.label());
-                }
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Name")), |ui| {
+                let r = ui.add(egui::TextEdit::singleline(&mut d.name).desired_width(220.0));
+                crate::widgets::focus_on_open(ui.ctx(), &r, &d.name);
             });
-            app.auto.add_response("dialog.light.type", &combo.response, "Light Type");
-            ui.end_row();
-            ui.label(tr("Color"));
-            crate::widgets::srgb_color_button(ui, &mut d.color);
-            ui.end_row();
-            ui.label(tr("Intensity"));
-            ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.intensity).range(-10000.0..=10000.0).suffix(" %")));
-            ui.end_row();
-            if d.kind == LightKind::Spot {
-                ui.label(tr("Cone Angle"));
-                ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.cone_angle).range(0.0..=180.0).suffix("°")));
-                ui.end_row();
-                ui.label(tr("Cone Feather"));
-                ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.cone_feather).range(0.0..=100.0).suffix(" %")));
-                ui.end_row();
-            }
-            if falls_off(d.kind) {
-                ui.label(tr("Falloff"));
-                craft_ui::ComboBox::from_id_salt("light-falloff").selected_text(FALLOFFS[d.falloff.min(2)]).show_ui(ui, |ui| {
-                    for (i, f) in FALLOFFS.iter().enumerate() {
-                        ui.selectable_value(&mut d.falloff, i, *f);
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Light Type")), |ui| {
+                let combo = craft_ui::ComboBox::from_id_salt("light-type").selected_text(tr(d.kind.label())).show_ui(ui, |ui| {
+                    for (i, k) in LightKind::ALL.into_iter().enumerate() {
+                        let item = ui.selectable_value(&mut d.kind, k, tr(k.label()));
+                        app.auto.add(&format!("dialog.light.typeItem.{i}"), item.rect, k.label());
                     }
                 });
-                ui.end_row();
+                app.auto.add_response("dialog.light.type", &combo.response, "Light Type");
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Color")), |ui| {
+                crate::widgets::srgb_color_button(ui, &mut d.color);
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Intensity")), |ui| {
+                ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.intensity).range(-10000.0..=10000.0).suffix(" %")));
+            });
+            if d.kind == LightKind::Spot {
+                crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Cone Angle")), |ui| {
+                    ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.cone_angle).range(0.0..=180.0).suffix("°")));
+                });
+                crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Cone Feather")), |ui| {
+                    ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.cone_feather).range(0.0..=100.0).suffix(" %")));
+                });
+            }
+            if falls_off(d.kind) {
+                crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Falloff")), |ui| {
+                    craft_ui::ComboBox::from_id_salt("light-falloff").selected_text(FALLOFFS[d.falloff.min(2)]).show_ui(ui, |ui| {
+                        for (i, f) in FALLOFFS.iter().enumerate() {
+                            ui.selectable_value(&mut d.falloff, i, *f);
+                        }
+                    });
+                });
                 if d.falloff > 0 {
-                    ui.label(tr("Radius"));
-                    ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.radius).range(0.0..=100000.0).suffix(" px")));
-                    ui.end_row();
-                    ui.label(tr("Falloff Distance"));
-                    ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.falloff_distance).range(0.0..=100000.0).suffix(" px")));
-                    ui.end_row();
+                    crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Radius")), |ui| {
+                        ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.radius).range(0.0..=100000.0).suffix(" px")));
+                    });
+                    crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Falloff Distance")), |ui| {
+                        ui.add(crate::widgets::drag_value(egui::DragValue::new(&mut d.falloff_distance).range(0.0..=100000.0).suffix(" px")));
+                    });
                 }
             }
             if casts_shadows(d.kind) {
-                ui.label(tr("Shadows"));
-                let cb = crate::widgets::labelled_checkbox(ui, &mut d.casts_shadows, tr("Casts Shadows"));
-                app.auto.add_response("dialog.light.casts", &cb, "Casts Shadows");
-                ui.end_row();
-                ui.label(tr("Shadow Darkness"));
-                ui.add_enabled(d.casts_shadows, crate::widgets::drag_value(egui::DragValue::new(&mut d.shadow_darkness).range(0.0..=100.0).suffix(" %")));
-                ui.end_row();
-                ui.label(tr("Shadow Diffusion"));
-                ui.add_enabled(d.casts_shadows, crate::widgets::drag_value(egui::DragValue::new(&mut d.shadow_diffusion).range(0.0..=1000.0).suffix(" px")));
-                ui.end_row();
+                crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Shadows")), |ui| {
+                    let cb = crate::widgets::labelled_checkbox(ui, &mut d.casts_shadows, tr("Casts Shadows"));
+                    app.auto.add_response("dialog.light.casts", &cb, "Casts Shadows");
+                });
+                crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Shadow Darkness")), |ui| {
+                    ui.add_enabled(d.casts_shadows, crate::widgets::drag_value(egui::DragValue::new(&mut d.shadow_darkness).range(0.0..=100.0).suffix(" %")));
+                });
+                crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Shadow Diffusion")), |ui| {
+                    ui.add_enabled(d.casts_shadows, crate::widgets::drag_value(egui::DragValue::new(&mut d.shadow_diffusion).range(0.0..=1000.0).suffix(" px")));
+                });
             }
         });
         ui.add_space(14.0);

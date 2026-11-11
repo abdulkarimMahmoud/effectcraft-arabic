@@ -543,10 +543,17 @@ const DOC_OVERFLOW: f32 = 22.0;
 const DOC_CLOSE: f32 = 16.0;
 
 /// A comp tab's text: the label swatch, then the name, as the panel tabs with a swatch show it.
-fn doc_job(doc: &DocTab, font: &egui::FontId, color: egui::Color32) -> egui::text::LayoutJob {
+/// In an RTL interface the swatch sits at the reading start (the right), after the name in
+/// logical order.
+fn doc_job(doc: &DocTab, font: &egui::FontId, color: egui::Color32, rtl: bool) -> egui::text::LayoutJob {
     let mut job = egui::text::LayoutJob::default();
-    job.append("\u{25a0} ", 0.0, egui::TextFormat::simple(font.clone(), doc.swatch));
-    job.append(&doc.title, 0.0, egui::TextFormat::simple(font.clone(), color));
+    if rtl {
+        job.append(&doc.title, 0.0, egui::TextFormat::simple(font.clone(), color));
+        job.append(" \u{25a0}", 0.0, egui::TextFormat::simple(font.clone(), doc.swatch));
+    } else {
+        job.append("\u{25a0} ", 0.0, egui::TextFormat::simple(font.clone(), doc.swatch));
+        job.append(&doc.title, 0.0, egui::TextFormat::simple(font.clone(), color));
+    }
     job
 }
 
@@ -557,7 +564,7 @@ fn text_width(ctx: &egui::Context, job: egui::text::LayoutJob) -> f32 {
 
 /// The width each comp tab asks for in the Timeline group's tab row.
 pub fn doc_widths(ctx: &egui::Context, docs: &[DocTab], font: &egui::FontId) -> Vec<f32> {
-    docs.iter().map(|d| text_width(ctx, doc_job(d, font, egui::Color32::WHITE)) + TAB_PADDING + DOC_CLOSE).collect()
+    docs.iter().map(|d| text_width(ctx, doc_job(d, font, egui::Color32::WHITE, false)) + TAB_PADDING + DOC_CLOSE).collect()
 }
 
 /// The × of comp tab `doc` at `rect`, clipped to `clip`; true when clicked. `shown` is the comp
@@ -610,14 +617,24 @@ pub fn doc_tabs(
     let fit = craft_ui::tabs::fit_whole(&widths, active, strip.width(), DOC_OVERFLOW);
     let clip = strip.intersect(ui.clip_rect());
     let mid = strip.center().y;
-    let mut x = strip.min.x;
+    // In an RTL interface the comp tabs flow from the right, the × sits before the name and the
+    // overflow menu at the left end.
+    let rtl = crate::i18n::current_is_rtl();
+    let mut x = if rtl { strip.max.x } else { strip.min.x };
     for (index, width) in &fit.shown {
         let Some(doc) = docs.get(*index) else { continue };
-        let tab = Rect::from_min_size(pos2(x, strip.min.y), vec2(*width, strip.height()));
-        x += width;
+        let tab = if rtl {
+            let t = Rect::from_min_size(pos2(x - width, strip.min.y), vec2(*width, strip.height()));
+            x -= width;
+            t
+        } else {
+            let t = Rect::from_min_size(pos2(x, strip.min.y), vec2(*width, strip.height()));
+            x += width;
+            t
+        };
         let on = selected && doc.active;
         let color = if on { style.text } else { style.inactive_text };
-        let mut job = doc_job(doc, &style.font, color);
+        let mut job = doc_job(doc, &style.font, color, rtl);
         job.wrap = egui::text::TextWrapping {
             max_width: (tab.width() - TAB_PADDING - DOC_CLOSE).max(0.0),
             max_rows: 1,
@@ -625,21 +642,22 @@ pub fn doc_tabs(
             overflow_character: Some('\u{2026}'),
         };
         let galley = ui.fonts_mut(|f| f.layout_job(job));
-        let label_end = tab.min.x + TAB_PADDING * 0.5 + galley.size().x;
+        let label_x = if rtl { tab.max.x - TAB_PADDING * 0.5 - galley.size().x } else { tab.min.x + TAB_PADDING * 0.5 };
         let resp = craft_ui::tabs::Tab::new(egui::Id::unique(("comp-tab", doc.id)), &doc.title, on).focus_stroke(Stroke::new(1.0, style.accent)).show_at(
             ui,
             tab,
             |ui, response| {
                 let painter = ui.painter().with_clip_rect(tab.intersect(clip));
                 painter.rect_filled(tab, 0.0, if on || response.hovered() { style.active_background } else { style.tab_background });
-                painter.galley(pos2(tab.min.x + TAB_PADDING * 0.5, mid - galley.size().y * 0.5), galley.clone(), color);
+                painter.galley(pos2(label_x, mid - galley.size().y * 0.5), galley.clone(), color);
             },
         );
         let resp = if galley.elided { resp.on_hover_text(&doc.title) } else { resp };
         reg.add_response(&format!("panel.tab.{timeline}.{}", doc.id), &resp, &doc.title);
         // After the tab, so the × takes the clicks over it.
         if on || ui.rect_contains_pointer(tab.intersect(clip)) {
-            let cr = Rect::from_center_size(pos2(label_end + DOC_CLOSE / 2.0, mid), vec2(10.0, 10.0));
+            let close_x = if rtl { label_x - DOC_CLOSE / 2.0 } else { label_x + galley.size().x + DOC_CLOSE / 2.0 };
+            let cr = Rect::from_center_size(pos2(close_x, mid), vec2(10.0, 10.0));
             if doc_close(ui, cr, tab.intersect(clip), doc, on, style, reg) {
                 out.push(DocAction::Close(doc.id));
             }
@@ -652,17 +670,21 @@ pub fn doc_tabs(
         }
     }
     if !fit.overflow.is_empty() && fit.overflow_width > 0.0 {
-        let more = Rect::from_min_size(pos2(x, strip.min.y), vec2(fit.overflow_width, strip.height()));
+        let more = if rtl {
+            Rect::from_min_size(pos2(x - fit.overflow_width, strip.min.y), vec2(fit.overflow_width, strip.height()))
+        } else {
+            Rect::from_min_size(pos2(x, strip.min.y), vec2(fit.overflow_width, strip.height()))
+        };
         let resp = ui.interact(more, egui::Id::unique("comp-tabs-more"), Sense::click());
         resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, resp.enabled(), "More compositions"));
         reg.add_response(&format!("panel.tab.{timeline}.more"), &resp, "More compositions");
         let color = if resp.hovered() { style.text } else { style.inactive_text };
-        ui.painter().with_clip_rect(more.intersect(clip)).text(more.center(), Align2::CENTER_CENTER, "\u{bb}", style.font.clone(), color);
+        ui.painter().with_clip_rect(more.intersect(clip)).text(more.center(), Align2::CENTER_CENTER, if rtl { "\u{ab}" } else { "\u{bb}" }, style.font.clone(), color);
         egui::Popup::menu(&resp).show(|ui| {
             egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
                 for index in &fit.overflow {
                     let Some(doc) = docs.get(*index) else { continue };
-                    let item = ui.button(doc_job(doc, &style.font, style.text));
+                    let item = ui.button(doc_job(doc, &style.font, style.text, rtl));
                     item.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, item.enabled(), &doc.title));
                     reg.add_response(&format!("panel.tab.{timeline}.more.{}", doc.id), &item, &doc.title);
                     if item.clicked() {

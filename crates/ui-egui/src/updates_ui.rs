@@ -114,7 +114,7 @@ pub(crate) fn show(app: &mut EffectcraftApp, ctx: &egui::Context) {
                     ui.label(msg);
                 }
                 ui.add_space(8.0);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
                     if ui.button(crate::i18n::tr("Close")).clicked() {
                         close = true;
                     }

@@ -78,7 +78,7 @@ fn page_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, page: &Page, cur: &Value
             Item::AudioDevices { key } => {
                 let devices: Vec<String> = app.hooks.audio_devices.as_ref().map(|f| f()).unwrap_or_default();
                 let sel = get(key).as_str().unwrap_or("").to_string();
-                ui.horizontal(|ui| {
+                crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                     ui.add_sized(vec2(label_w, 18.0), egui::Label::new(tr("Default Output:")));
                     let shown = if sel.is_empty() { tr("System Default").to_string() } else { sel.clone() };
                     let shown_name = shown.clone();
@@ -120,7 +120,7 @@ fn page_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, page: &Page, cur: &Value
                         resp = Some(r);
                     }
                     _ => {
-                        ui.horizontal(|ui| {
+                        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                             ui.add_sized(vec2(label_w, 18.0), egui::Label::new(format!("{}:", tr(label))).truncate());
                             let r = match kind {
                                 Kind::Int(lo, hi, unit) => {
@@ -399,7 +399,7 @@ fn theme_card(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, fam: Them
         .inner_margin(egui::Margin::same(8))
         .show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.horizontal(|ui| {
+            crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                 ui.label(RichText::new(title).font(Tokens::semibold(12.5)).color(t.text));
                 if active {
                     ui.label(RichText::new(tr("Active")).color(t.accent).small());
@@ -412,13 +412,13 @@ fn theme_card(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, fam: Them
             for (label, value) in options {
                 let row = egui::Rect::from_min_size(ui.cursor().min, vec2(ui.available_width(), 24.0));
                 let hovered = ui.ctx().pointer_hover_pos().is_some_and(|p| row.contains(p));
-                ui.horizontal(|ui| {
+                crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                     let r = ui.radio(cur == *value, tr(label));
                     reg(app, &format!("settings.{key}.{value}"), &r, label);
                     if r.clicked() && cur != *value {
                         acts.push(Act::Set(key.into(), json!(value)));
                     }
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
                         let mut favorites = app.session.prefs.appearance.favorite_themes.clone();
                         let favorite = favorites.iter().any(|id| id == value);
                         let tip = tr(if favorite { "Remove from favorites" } else { "Add to favorites" });
@@ -452,7 +452,7 @@ fn theme_card(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, fam: Them
 fn appearance_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, cur: &Value, t: &Tokens, acts: &mut Vec<Act>) {
     let get = |key: &str| cur.pointer(&format!("/appearance/{key}")).and_then(Value::as_str).unwrap_or_default().to_string();
     let (mode, light, dark) = (get("appearanceMode"), get("lightTheme"), get("darkTheme"));
-    ui.horizontal(|ui| {
+    crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
         ui.add_sized(vec2(250.0, 18.0), egui::Label::new(format!("{}:", tr("Appearance Mode"))).truncate());
         let shown = APPEARANCE_MODES.iter().find(|(_, v)| *v == mode).map_or(mode.as_str(), |(l, _)| *l);
         let r = craft_ui::ComboBox::from_id_salt(("settings", "appearance.appearanceMode"))
@@ -524,7 +524,7 @@ fn models_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, acts: &mut
         ui.add_space(6.0);
         egui::Frame::new().fill(t.field_bg).corner_radius(6.0).inner_margin(egui::Margin::same(10)).show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.horizontal(|ui| {
+            crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                 let r = ui.radio(selected, RichText::new(name).font(Tokens::semibold(12.5)));
                 reg(app, &format!("settings.{prefix}.model.{id}"), &r, name);
                 if r.clicked() && !selected {
@@ -547,7 +547,7 @@ fn models_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, acts: &mut
             if let Some(by) = m["authors"].as_str() {
                 ui.label(RichText::new(format!("By {by}")).color(t.text_dim));
             }
-            ui.horizontal_wrapped(|ui| {
+            crate::widgets::h_row_wrapped(ui, crate::i18n::current_is_rtl(), |ui| {
                 ui.label(RichText::new(tr_args("Licence: {}", &[&(m["licence"].as_str().unwrap_or_default())])).color(t.text_dim));
                 if let Some(size) = m["size"].as_u64() {
                     ui.label(RichText::new(format!("·  {}", human_bytes(size))).color(t.text_dim));
@@ -571,7 +571,7 @@ fn models_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, acts: &mut
             if classic {
                 return;
             }
-            ui.horizontal(|ui| {
+            crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                 if !installed && !web && m["url"].as_str().is_some_and(|url| !url.is_empty()) {
                     let r = ui.add_enabled(busy.is_none(), egui::Button::new(tr("Download")));
                     reg(app, &format!("settings.{prefix}.download.{id}"), &r, "Download");
@@ -597,7 +597,7 @@ fn models_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, acts: &mut
         });
     }
     if let Some(b) = &busy {
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.spinner();
             ui.label(b);
         });
@@ -648,7 +648,7 @@ fn library_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, acts: &mu
         ui.label(RichText::new(note).color(t.text_dim));
     }
     if let Some(b) = &busy {
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.spinner();
             ui.label(b);
         });
@@ -664,7 +664,7 @@ fn library_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, acts: &mu
 
 /// The Plug-in Library's search field, Refresh (or Fetch Catalog) and Update All.
 fn library_toolbar_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, query: &str, packages: &[Value], has_catalog: bool, idle: bool, acts: &mut Vec<Act>) {
-    ui.horizontal(|ui| {
+    crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
         let mut q = query.to_string();
         let r = ui.add(egui::TextEdit::singleline(&mut q).hint_text(tr("Search plug-ins and effects")).desired_width(260.0));
         reg(app, "settings.library.query", &r, "Search");
@@ -698,7 +698,7 @@ fn library_card_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, p: &
         (p["updateAvailable"].as_bool().unwrap_or(false), p["restartNeeded"].as_bool().unwrap_or(false), p["needsNewerApp"].as_bool().unwrap_or(false));
     egui::Frame::new().fill(t.field_bg).corner_radius(6.0).inner_margin(egui::Margin::same(10)).show(ui, |ui| {
         ui.set_width(ui.available_width());
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(RichText::new(s("name")).font(Tokens::semibold(12.5)));
             if let Some(v) = p["latest"].as_str() {
                 ui.label(RichText::new(v).color(t.text_dim));
@@ -730,7 +730,7 @@ fn library_card_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, p: &
 /// A package's author, licence, size, and links to its source and video.
 fn library_links_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, p: &Value, id: &str) {
     let s = |k: &str| p[k].as_str().unwrap_or_default().to_string();
-    ui.horizontal_wrapped(|ui| {
+    crate::widgets::h_row_wrapped(ui, crate::i18n::current_is_rtl(), |ui| {
         if !s("author").is_empty() {
             ui.label(RichText::new(tr_args("By {}", &[&s("author")])).color(t.text_dim));
         }
@@ -765,7 +765,7 @@ fn library_actions_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, p: &Value, id
     let installed = p["installed"].is_string();
     let available = !p["latest"].is_null();
     let showing = app.dialog_state.library_preview.as_deref() == Some(id);
-    ui.horizontal(|ui| {
+    crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
         if available {
             let r = ui.add_enabled(idle || showing, egui::Button::new(if showing { tr("Hide Preview") } else { tr("Preview") }).selected(showing));
             reg(app, &format!("settings.library.preview.{id}"), &r, "Preview");
@@ -807,7 +807,7 @@ fn library_preview_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, i
         if status.busy.is_none() {
             return;
         }
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             ui.spinner();
             ui.label(RichText::new(tr("Rendering a preview in the sandbox…")).color(t.text_dim));
         });
@@ -925,7 +925,7 @@ fn browser_storage_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, a
     };
     let r = ui.label(RichText::new(&dc).color(t.text_dim));
     reg(app, "settings.storage.diskCache", &r, &dc);
-    ui.horizontal(|ui| {
+    crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
         let persisted = info["persisted"].as_bool().unwrap_or(false);
         let state = if persisted { "Persistent storage: granted" } else { "Persistent storage: not granted (the browser may clear it when space runs low)" };
         ui.label(state);
@@ -937,7 +937,7 @@ fn browser_storage_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, t: &Tokens, a
             }
         }
     });
-    ui.horizontal_wrapped(|ui| {
+    crate::widgets::h_row_wrapped(ui, crate::i18n::current_is_rtl(), |ui| {
         for (what, label) in
             [("diskCache", "Clear Disk Cache"), ("media", "Clear Imported Media"), ("autoSaves", "Clear Auto-Saves"), ("projects", "Clear Saved Projects")]
         {
@@ -957,24 +957,29 @@ fn labels_ui(app: &mut EffectcraftApp, ui: &mut egui::Ui, cur: &Value, acts: &mu
     ui.label(tr("Label Colors and Names:"));
     ui.add_space(4.0);
     let labels = cur.get("labels").and_then(Value::as_array).cloned().unwrap_or_default();
+    // Two label pairs per row (colour swatch + name field). In RTL each pair mirrors (name field
+    // then swatch) and the pairs flow right-to-left, so label 1 sits at the right edge.
+    let rtl = crate::i18n::current_is_rtl();
     egui::Grid::new("settings-labels").num_columns(4).spacing([10.0, 4.0]).show(ui, |ui| {
         for (i, l) in labels.iter().enumerate() {
-            let c = crate::panels::viewer::hex_rgb(l["color"].as_str().unwrap_or("")).unwrap_or([128, 128, 128]);
-            let mut f = c.map(|v| v as f32 / 255.0);
-            let r = crate::widgets::srgb_color_button(ui, &mut f);
-            let rgb = if r.changed() { srgb_bytes(f) } else { c };
-            a11y::name_value(&r, &tr_args("Label {} color", &[&(i + 1)]), &hex(rgb));
-            app.auto.add(&format!("settings.labels.{i}.color"), r.rect, "label colour");
-            if rgb != c {
-                acts.push(Act::Set(format!("labels.{i}.color"), json!(hex(rgb))));
-            }
-            let mut name = l["name"].as_str().unwrap_or("").to_string();
-            let r = ui.add_sized(vec2(160.0, 20.0), egui::TextEdit::singleline(&mut name));
-            a11y::text_input(&r, &tr_args("Label {} name", &[&(i + 1)]), &name);
-            app.auto.add(&format!("settings.labels.{i}.name"), r.rect, "label name");
-            if r.changed() {
-                acts.push(Act::Set(format!("labels.{i}.name"), json!(name)));
-            }
+            crate::widgets::labelled_row(ui, rtl, |ui| ui.label(tr("Label")), |ui| {
+                let c = crate::panels::viewer::hex_rgb(l["color"].as_str().unwrap_or("")).unwrap_or([128, 128, 128]);
+                let mut f = c.map(|v| v as f32 / 255.0);
+                let r = crate::widgets::srgb_color_button(ui, &mut f);
+                let rgb = if r.changed() { srgb_bytes(f) } else { c };
+                a11y::name_value(&r, &tr_args("Label {} color", &[&(i + 1)]), &hex(rgb));
+                app.auto.add(&format!("settings.labels.{i}.color"), r.rect, "label colour");
+                if rgb != c {
+                    acts.push(Act::Set(format!("labels.{i}.color"), json!(hex(rgb))));
+                }
+                let mut name = l["name"].as_str().unwrap_or("").to_string();
+                let r = ui.add_sized(vec2(160.0, 20.0), egui::TextEdit::singleline(&mut name));
+                a11y::text_input(&r, &tr_args("Label {} name", &[&(i + 1)]), &name);
+                app.auto.add(&format!("settings.labels.{i}.name"), r.rect, "label name");
+                if r.changed() {
+                    acts.push(Act::Set(format!("labels.{i}.name"), json!(name)));
+                }
+            });
             if i % 2 == 1 {
                 ui.end_row();
             }
@@ -1014,7 +1019,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
                 if r.clicked() {
                     page = all[idx + 1].id.to_string();
                 }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
                     let r = ui.add(egui::Button::new(RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(t.accent));
                     app.auto.add("settings.ok", r.rect, "OK");
                     ok |= r.clicked();
@@ -1210,7 +1215,7 @@ pub fn recovery(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             }
         }
         ui.add_space(14.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             let b = ui.add(egui::Button::new(RichText::new(tr(" Open Auto-Save ")).color(Color32::WHITE)).fill(t.accent));
             app.auto.add("recovery.openAutoSave", b.rect, "Open Auto-Save");
             if b.clicked() {

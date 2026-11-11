@@ -427,7 +427,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
         // The selected stop's fields.
         let selected = app.dialog_state.gradient.selected;
         let selected = selected.and_then(|(track, id)| app.dialog_state.gradient.index_of(track, id).map(|i| (track, id, i)));
-        ui.horizontal(|ui| {
+        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
             let Some((track, id, i)) = selected else {
                 ui.label(egui::RichText::new(tr("Click above the bar to add an opacity stop, below it to add a color stop.")).color(t.text_dim));
                 return;
@@ -482,7 +482,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
             ui.label(egui::RichText::new(tr("These adjacent keyframes cannot interpolate because their stop counts differ.")).color(t.danger).size(11.0));
         }
         ui.add_space(14.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             let r = ui.button(tr("Cancel"));
             app.auto.add("dialog.gradient.cancel", r.rect, "Cancel");
             if r.clicked() {

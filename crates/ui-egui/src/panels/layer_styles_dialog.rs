@@ -149,7 +149,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
         // above them (#1062).
         let (mut body, body_h) = super::dialogs::above_footer(ui, height, |foot| {
             foot.horizontal(|ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
                     let ok = ui.button(tr("OK"));
                     app.auto.add("dialog.layerStyle.ok", ok.rect, "OK");
                     if ok.clicked() {
@@ -172,7 +172,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
                     let mut entries = vec![(BLENDING, "Blending Options")];
                     entries.extend(STYLES.iter().copied());
                     for (id, name) in entries {
-                        ui.horizontal(|ui| {
+                        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
                             if id != BLENDING {
                                 let g = styles.as_ref().and_then(|s| s.sub(id));
                                 let mut on = g.is_some_and(|g| g.enabled);
@@ -220,27 +220,29 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
                     .min_scrolled_height(0.0)
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
+                        let rtl = crate::i18n::current_is_rtl();
                         egui::Grid::new("ls-grid").num_columns(2).spacing(vec2(12.0, 6.0)).show(ui, |ui| {
                             g.walk("", &mut |_, p| {
                                 if matches!(p.ui, ParamUi::Hidden) {
                                     return;
                                 }
-                                let lbl = ui.label(&p.name);
                                 let v = p.value_at(lt);
                                 if matches!(v, KV::Gradient(_)) {
                                     // The Gradient Editor, over this dialog (a style the dialog
                                     // only shows has no property to edit yet).
                                     let path = g.match_path_of(p.uid).unwrap_or_default();
-                                    let r = ui.add_enabled(missing.is_none(), egui::Button::new(tr("Edit Gradient…")));
-                                    if r.clicked() {
-                                        actions.push(("prop.editGradient".into(), json!({"layer": lid, "prop": p.uid})));
-                                        app.dialog_state.layer_style.gradient_open = true;
-                                    }
+                                    let (_, r) = crate::widgets::grid_row(ui, rtl, |ui| ui.label(&p.name), |ui| {
+                                        let r = ui.add_enabled(missing.is_none(), egui::Button::new(tr("Edit Gradient…")));
+                                        if r.clicked() {
+                                            actions.push(("prop.editGradient".into(), json!({"layer": lid, "prop": p.uid})));
+                                            app.dialog_state.layer_style.gradient_open = true;
+                                        }
+                                        r
+                                    });
                                     app.auto.add(&format!("dialog.layerStyle.value.{sel}/{path}"), r.rect, &p.name);
-                                    ui.end_row();
                                     return;
                                 }
-                                let edit = ui.scope(|ui| control(ui, p, &v));
+                                let (lbl, edit) = crate::widgets::grid_row(ui, rtl, |ui| ui.label(&p.name), |ui| ui.scope(|ui| control(ui, p, &v)));
                                 let path = g.match_path_of(p.uid).unwrap_or_default();
                                 if let Some(nv) = edit.inner {
                                     // Keyed by path, not uid: the group created by the first
@@ -258,7 +260,6 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
                                 }
                                 app.auto.add(&format!("dialog.layerStyle.prop.{sel}/{path}"), lbl.rect, &p.name);
                                 app.auto.add(&format!("dialog.layerStyle.value.{sel}/{path}"), edit.response.rect, &p.name);
-                                ui.end_row();
                             });
                         });
                     });

@@ -7,7 +7,9 @@
 //! focus, so Enter and Space are egui's own clicks on it.
 //!
 //! While a menu is open or the bar has the keyboard, keys go to the menus only: the app's
-//! shortcuts and the panels don't see them (Space must not start a preview).
+//! shortcuts and the panels don't see them (Space must not start a preview). In an RTL interface
+//! Left and Right swap: Left enters a submenu (submenus open to the left) and moves to the next
+//! menu, Right closes it and moves to the previous one.
 
 use egui::containers::menu::{MenuState, SubMenu, find_menu_root};
 use egui::{Context, Event, Id, Key, Modifiers, Popup, Pos2, Rect, Response, Ui};
@@ -307,14 +309,17 @@ pub fn handle(ctx: &Context, nav: &Nav) {
         }
     }
     let top = open.or(bar).unwrap_or(0) as isize;
-    if pressed(Key::ArrowRight) {
+    // In an RTL interface the bar runs right-to-left and submenus open to the left: Left is
+    // "forward" (enter a submenu, next menu) and Right is "back".
+    let (forward, back) = if crate::i18n::current_is_rtl() { (Key::ArrowLeft, Key::ArrowRight) } else { (Key::ArrowRight, Key::ArrowLeft) };
+    if pressed(forward) {
         match (cur, row) {
             (Some((d, _)), Some(r)) if r.submenu => open_submenu(ctx, nav, d, r.id),
             _ if open.is_some() => open_top(ctx, nav, top + 1),
             _ => focus_top(ctx, nav, top + 1),
         }
     }
-    if pressed(Key::ArrowLeft) {
+    if pressed(back) {
         match cur {
             Some((d, _)) if d > 0 => {
                 let (menu, owner) = (nav.levels.get(d - 1).and_then(|l| l.menu), nav.levels.get(d).and_then(|l| l.owner));

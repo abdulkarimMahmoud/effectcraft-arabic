@@ -1,0 +1,8 @@
+asset:        IBMPlexSansArabic-SemiBold.ttf
+title:        IBM Plex Sans Arabic SemiBold (Arabic UI typeface, semibold weight)
+author:       IBM Corp. (Plex Project Authors)
+source:       https://github.com/google/fonts/raw/main/ofl/ibmplexsansarabic/IBMPlexSansArabic-SemiBold.ttf
+license:      OFL-1.1
+license-file: assets/fonts/OFL-IBMPlexSansArabic.txt
+added:        2026-11-11 by Arena agent for EffectCraft Arabic localization
+notes:        Unmodified font file, sha256 597bd5502e5997be4414e4c9c88834b30ff3784250c84f20bce2b20e53ebd467. Embedded via include_bytes! in crates/ui-egui/src/theme.rs as the semibold-weight Arabic face for the named "semibold" UI family.

@@ -114,7 +114,7 @@ pub fn open_time_stretch(app: &mut EffectcraftApp) -> Result<(), String> {
 fn buttons(ui: &mut egui::Ui, app: &mut EffectcraftApp, t: &Tokens, prefix: &str) -> (bool, bool) {
     let (mut ok, mut cancel) = (false, false);
     ui.add_space(14.0);
-    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+    ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
         let r = ui.add(egui::Button::new(egui::RichText::new(tr("   OK   ")).color(Color32::WHITE)).fill(t.accent));
         app.auto.add(&format!("{prefix}.ok"), r.rect, "OK");
         ok = r.clicked();
@@ -147,22 +147,40 @@ pub fn velocity(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
         for (label, out) in [("Incoming Velocity", false), ("Outgoing Velocity", true)] {
             ui.label(egui::RichText::new(label).font(Tokens::medium(12.5)));
             let enabled = if out { d.has_out } else { d.has_in };
+            let rtl = crate::i18n::current_is_rtl();
             egui::Grid::new(("vel", out)).num_columns(3).spacing([12.0, 6.0]).show(ui, |ui| {
                 for dim in 0..d.dims {
                     let tag = if d.dims > 1 { format!("Dimension {}", ["X", "Y", "Z", "W"][dim.min(3)]) } else { String::new() };
-                    ui.label(egui::RichText::new(tag).color(t.text_dim));
                     let side = if out { "out" } else { "in" };
-                    ui.horizontal(|ui| {
-                        ui.label(tr("Speed:"));
-                        let v = if out { &mut d.out_speed[dim] } else { &mut d.in_speed[dim] };
-                        drag(ui, app, &format!("dialog.velocity.{side}Speed.{dim}"), v, DragSpec { speed: 1.0, range: -1e7..=1e7, suffix: "" }, enabled);
-                        ui.label(egui::RichText::new(&d.units).color(t.text_dim));
-                    });
-                    ui.horizontal(|ui| {
-                        ui.label(tr("Influence:"));
-                        let v = if out { &mut d.out_inf[dim] } else { &mut d.in_inf[dim] };
-                        drag(ui, app, &format!("dialog.velocity.{side}Influence.{dim}"), v, DragSpec { speed: 0.2, range: 0.1..=100.0, suffix: " %" }, enabled);
-                    });
+                    // In an RTL interface the row mirrors: influence, speed, then the tag. The
+                    // draft and app are parameters, so the three cells can coexist.
+                    let tag_cell = |ui: &mut egui::Ui, tag: String| {
+                        ui.label(egui::RichText::new(tag).color(t.text_dim));
+                    };
+                    let speed_cell = |ui: &mut egui::Ui, d: &mut VelocityDraft, app: &mut EffectcraftApp| {
+                        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
+                            ui.label(tr("Speed:"));
+                            let v = if out { &mut d.out_speed[dim] } else { &mut d.in_speed[dim] };
+                            drag(ui, app, &format!("dialog.velocity.{side}Speed.{dim}"), v, DragSpec { speed: 1.0, range: -1e7..=1e7, suffix: "" }, enabled);
+                            ui.label(egui::RichText::new(&d.units).color(t.text_dim));
+                        });
+                    };
+                    let influence_cell = |ui: &mut egui::Ui, d: &mut VelocityDraft, app: &mut EffectcraftApp| {
+                        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
+                            ui.label(tr("Influence:"));
+                            let v = if out { &mut d.out_inf[dim] } else { &mut d.in_inf[dim] };
+                            drag(ui, app, &format!("dialog.velocity.{side}Influence.{dim}"), v, DragSpec { speed: 0.2, range: 0.1..=100.0, suffix: " %" }, enabled);
+                        });
+                    };
+                    if rtl {
+                        influence_cell(ui, &mut d, app);
+                        speed_cell(ui, &mut d, app);
+                        tag_cell(ui, tag);
+                    } else {
+                        tag_cell(ui, tag);
+                        speed_cell(ui, &mut d, app);
+                        influence_cell(ui, &mut d, app);
+                    }
                     ui.end_row();
                 }
             });
@@ -212,16 +230,17 @@ pub fn interpolation(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) 
     let mut d = app.dialog_state.interp.clone();
     let (mut ok, mut cancel) = (false, false);
     super::dialogs::modal(ctx, "Keyframe Interpolation", vec2(440.0, 250.0), t, |ui| {
+        let rtl = crate::i18n::current_is_rtl();
         egui::Grid::new("interp-grid").num_columns(2).spacing([14.0, 10.0]).show(ui, |ui| {
-            ui.label(tr("Temporal Interpolation:"));
-            combo(ui, app, "dialog.interpolation.temporal", &mut d.temporal, &TEMPORAL.map(|x| x.0), true);
-            ui.end_row();
-            ui.label(tr("Spatial Interpolation:"));
-            combo(ui, app, "dialog.interpolation.spatial", &mut d.spatial, &SPATIAL.map(|x| x.0), d.has_spatial);
-            ui.end_row();
-            ui.label(tr("Roving:"));
-            combo(ui, app, "dialog.interpolation.roving", &mut d.roving, &ROVING, d.has_spatial);
-            ui.end_row();
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Temporal Interpolation:")), |ui| {
+                combo(ui, app, "dialog.interpolation.temporal", &mut d.temporal, &TEMPORAL.map(|x| x.0), true);
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Spatial Interpolation:")), |ui| {
+                combo(ui, app, "dialog.interpolation.spatial", &mut d.spatial, &SPATIAL.map(|x| x.0), d.has_spatial);
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Roving:")), |ui| {
+                combo(ui, app, "dialog.interpolation.roving", &mut d.roving, &ROVING, d.has_spatial);
+            });
         });
         ui.add_space(6.0);
         ui.label(egui::RichText::new(format!("{} keyframe{} selected", d.count, if d.count == 1 { "" } else { "s" })).color(t.text_dim));
@@ -256,36 +275,37 @@ pub fn time_stretch(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
     let (mut ok, mut cancel) = (false, false);
     super::dialogs::modal(ctx, "Time Stretch", vec2(420.0, 300.0), t, |ui| {
         ui.label(egui::RichText::new(tr("Stretch")).font(Tokens::medium(12.5)));
+        let rtl = crate::i18n::current_is_rtl();
         egui::Grid::new("stretch-grid").num_columns(2).spacing([14.0, 8.0]).show(ui, |ui| {
-            ui.label(tr("Original Duration:"));
-            ui.label(format!("{:.2} s", d.orig_duration));
-            ui.end_row();
-            ui.label(tr("Stretch Factor:"));
-            let before = d.percent;
-            drag(
-                ui,
-                app,
-                "dialog.timeStretch.percent",
-                &mut d.percent,
-                DragSpec { speed: 0.5, range: -effectcraft_project::limits::MAX_STRETCH..=effectcraft_project::limits::MAX_STRETCH, suffix: " %" },
-                true,
-            );
-            if (before - d.percent).abs() > 1e-9 && d.orig_percent.abs() > 1e-9 {
-                d.duration = d.orig_duration * d.percent.abs() / d.orig_percent.abs();
-            }
-            ui.end_row();
-            ui.label(tr("New Duration:"));
-            let before = d.duration;
-            drag(ui, app, "dialog.timeStretch.duration", &mut d.duration, DragSpec { speed: 0.05, range: 0.01..=100000.0, suffix: " s" }, true);
-            if (before - d.duration).abs() > 1e-9 && d.orig_duration > 1e-9 {
-                let wanted = d.orig_percent.signum() * d.orig_percent.abs() * d.duration / d.orig_duration;
-                // Within what Time Stretch accepts (±1 % to ±9900 %, #3247); the duration follows.
-                d.percent = effectcraft_project::limits::stretch(wanted);
-                if d.percent.to_bits() != wanted.to_bits() && d.orig_percent.abs() > 1e-9 {
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Original Duration:")), |ui| {
+                ui.label(format!("{:.2} s", d.orig_duration));
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("Stretch Factor:")), |ui| {
+                let before = d.percent;
+                drag(
+                    ui,
+                    app,
+                    "dialog.timeStretch.percent",
+                    &mut d.percent,
+                    DragSpec { speed: 0.5, range: -effectcraft_project::limits::MAX_STRETCH..=effectcraft_project::limits::MAX_STRETCH, suffix: " %" },
+                    true,
+                );
+                if (before - d.percent).abs() > 1e-9 && d.orig_percent.abs() > 1e-9 {
                     d.duration = d.orig_duration * d.percent.abs() / d.orig_percent.abs();
                 }
-            }
-            ui.end_row();
+            });
+            crate::widgets::grid_row(ui, rtl, |ui| ui.label(tr("New Duration:")), |ui| {
+                let before = d.duration;
+                drag(ui, app, "dialog.timeStretch.duration", &mut d.duration, DragSpec { speed: 0.05, range: 0.01..=100000.0, suffix: " s" }, true);
+                if (before - d.duration).abs() > 1e-9 && d.orig_duration > 1e-9 {
+                    let wanted = d.orig_percent.signum() * d.orig_percent.abs() * d.duration / d.orig_duration;
+                    // Within what Time Stretch accepts (±1 % to ±9900 %, #3247); the duration follows.
+                    d.percent = effectcraft_project::limits::stretch(wanted);
+                    if d.percent.to_bits() != wanted.to_bits() && d.orig_percent.abs() > 1e-9 {
+                        d.duration = d.orig_duration * d.percent.abs() / d.orig_percent.abs();
+                    }
+                }
+            });
         });
         ui.add_space(10.0);
         ui.label(egui::RichText::new(tr("Hold In Place")).font(Tokens::medium(12.5)));

@@ -4080,11 +4080,22 @@ fn prop_key_navigator(app: &mut EffectcraftApp, ui: &mut egui::Ui, g: &mut Rw, r
         let lt = layer.layer_time(time);
         let at_key = effectcraft_engine::keyframe::key_at(&prop.keys, lt).is_some();
         let nav_x = if vis.keys { cw.keys + 12.0 } else { cw.av + 18.0 };
-        let prev = Rect::from_center_size(pos2(nav_x, cy), vec2(12.0, 14.0));
+        // The navigator mirrors in RTL (previous keyframe to the right, next to the left) while
+        // the time axis itself stays left-to-right.
+        let rtl = crate::i18n::current_is_rtl();
+        let (prev, next) = if rtl {
+            (Rect::from_center_size(pos2(nav_x + 32.0, cy), vec2(12.0, 14.0)), Rect::from_center_size(pos2(nav_x, cy), vec2(12.0, 14.0)))
+        } else {
+            (Rect::from_center_size(pos2(nav_x, cy), vec2(12.0, 14.0)), Rect::from_center_size(pos2(nav_x + 32.0, cy), vec2(12.0, 14.0)))
+        };
         let mid = Rect::from_center_size(pos2(nav_x + 16.0, cy), vec2(14.0, 14.0));
-        let next = Rect::from_center_size(pos2(nav_x + 32.0, cy), vec2(12.0, 14.0));
-        icons::paint(&lp, prev.shrink(2.0), Icon::ChevronLeft, t.text_dim);
-        icons::paint(&lp, next.shrink(2.0), Icon::ChevronRight, t.text_dim);
+        if rtl {
+            icons::paint_mirrored(&lp, prev.shrink(2.0), Icon::ChevronLeft, t.text_dim);
+            icons::paint_mirrored(&lp, next.shrink(2.0), Icon::ChevronRight, t.text_dim);
+        } else {
+            icons::paint(&lp, prev.shrink(2.0), Icon::ChevronLeft, t.text_dim);
+            icons::paint(&lp, next.shrink(2.0), Icon::ChevronRight, t.text_dim);
+        }
         let kc = if at_key { t.keyframe_selected } else { Color32::TRANSPARENT };
         lp.add(egui::Shape::convex_polygon(
             vec![mid.center() + vec2(0.0, -5.0), mid.center() + vec2(5.0, 0.0), mid.center() + vec2(0.0, 5.0), mid.center() + vec2(-5.0, 0.0)],
@@ -5334,7 +5345,11 @@ fn shape_add_popup(
     let br = Rect::from_center_size(pos2(x + 40.0, cy), vec2(16.0, 16.0));
     let resp =
         ui.interact(br, egui::Id::unique(("tl-shapeadd", uid)), Sense::click()).on_hover_text(crate::i18n::tr("Add a shape, fill, stroke or path operation"));
-    icons::paint(p, br.shrink(3.0), Icon::ChevronRight, if resp.hovered() { t.text } else { t.text_dim });
+    if crate::i18n::current_is_rtl() {
+        icons::paint_mirrored(p, br.shrink(3.0), Icon::ChevronRight, if resp.hovered() { t.text } else { t.text_dim });
+    } else {
+        icons::paint(p, br.shrink(3.0), Icon::ChevronRight, if resp.hovered() { t.text } else { t.text_dim });
+    }
     app.auto.add(&format!("timeline.group.{uid}.add"), br, "Add:");
     let pop = egui::Id::unique(("tl-shapeadd-pop", uid));
     if resp.clicked() {
@@ -5391,7 +5406,11 @@ fn text_anim_popups(
     } else {
         "Animate text"
     }));
-    icons::paint(p, br.shrink(3.0), Icon::ChevronRight, if resp.hovered() { t.text } else { t.text_dim });
+    if crate::i18n::current_is_rtl() {
+        icons::paint_mirrored(p, br.shrink(3.0), Icon::ChevronRight, if resp.hovered() { t.text } else { t.text_dim });
+    } else {
+        icons::paint(p, br.shrink(3.0), Icon::ChevronRight, if resp.hovered() { t.text } else { t.text_dim });
+    }
     app.auto.add(&format!("timeline.group.{uid}.{key}"), br, label);
     let pop = egui::Id::unique(("tl-textanim-pop", uid));
     if resp.clicked() {

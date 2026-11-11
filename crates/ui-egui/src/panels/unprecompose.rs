@@ -66,7 +66,7 @@ pub fn show(app: &mut EffectcraftApp, ctx: &egui::Context, t: &Tokens) {
         ui.add_space(4.0);
         ui.label(egui::RichText::new(tr("What the pre-comp layer itself carries is dropped. You can undo this.")).color(t.text_dim).size(11.0));
         ui.add_space(14.0);
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        ui.with_layout(crate::i18n::end_layout(crate::i18n::current_is_rtl()), |ui| {
             let label = tr("Unpack Anyway");
             let r = ui.button(label);
             app.auto.add("dialog.unprecompose.force", r.rect, label);

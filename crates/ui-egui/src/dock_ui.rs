@@ -181,12 +181,12 @@ impl EffectcraftApp {
             return Ok(());
         }
         let space = craft_ui::docking::float_space(ctx, area_id()).unwrap_or_else(|| FloatSpace::new(ctx.content_rect()));
-        match command.to_actions(&self.ui.dock, false, &space) {
+        match command.to_actions(&self.ui.dock, crate::i18n::is_rtl(self), &space) {
             Ok(actions) => self.apply_dock_all(actions),
             // Showing a hidden panel at an edge, and Lock, change more than the layout.
             Err(DockError::NotAllowed) => {
                 let mut workspace = self.ui.dock.clone();
-                let closed = command.apply(&mut workspace, false, &space, dock::permissions).map_err(|error| error.to_string())?;
+                let closed = command.apply(&mut workspace, crate::i18n::is_rtl(self), &space, dock::permissions).map_err(|error| error.to_string())?;
                 self.commit_workspace(workspace, &closed, true);
                 Ok(())
             }
@@ -612,6 +612,8 @@ fn path_id(path: &[bool]) -> String {
 /// a release over no target floats, and a floating window's title bar only moves it.
 fn dock_style(ui: &egui::Ui, t: &Tokens) -> DockStyle {
     let mut style = DockStyle::from_ui(ui);
+    // RTL chrome: docks mirror (Side::Start is the right edge); splits keep their sides.
+    style.right_to_left = crate::i18n::current_is_rtl();
     style.side_edge_zones = true;
     style.new_dock_zones = false;
     style.maximize_item = true;
@@ -858,13 +860,20 @@ impl DockContent<PanelKind> for EffectContent<'_> {
         self.header_width(*active, strip_width)
     }
 
-    /// The viewer lock and the ≡ panel menu of the shown panel.
+    /// The viewer lock and the ≡ panel menu of the shown panel. In an RTL interface they sit at
+    /// the left end of the tab bar (the lock to the menu's right), mirroring the chrome.
     fn group_header(&mut self, ui: &mut egui::Ui, _panels: &[PanelKind], active: &PanelKind, _floating: bool) {
         let t = self.tokens;
         let header = ui.max_rect();
-        let menu = Rect::from_min_max(pos2((header.max.x - MENU_W).max(header.min.x), header.min.y), header.max);
+        let rtl = crate::i18n::current_is_rtl();
+        let menu = if rtl {
+            Rect::from_min_max(header.min, pos2((header.min.x + MENU_W).min(header.max.x), header.max.y))
+        } else {
+            Rect::from_min_max(pos2((header.max.x - MENU_W).max(header.min.x), header.min.y), header.max)
+        };
         if has_lock(*active) {
-            let lock = Rect::from_center_size(pos2(menu.min.x - LOCK_W / 2.0, header.center().y), vec2(14.0, 14.0));
+            let lock_x = if rtl { menu.max.x + LOCK_W / 2.0 } else { menu.min.x - LOCK_W / 2.0 };
+            let lock = Rect::from_center_size(pos2(lock_x, header.center().y), vec2(14.0, 14.0));
             let locked = self.app.ui.locked_tabs.contains(&active.id());
             if dock::lock_button(ui, lock, *active, locked, &t, &mut self.app.auto) {
                 self.locks.push(*active);

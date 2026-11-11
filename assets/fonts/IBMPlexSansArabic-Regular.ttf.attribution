@@ -1,0 +1,8 @@
+asset:        IBMPlexSansArabic-Regular.ttf
+title:        IBM Plex Sans Arabic Regular (Arabic UI typeface)
+author:       IBM Corp. (Plex Project Authors)
+source:       https://github.com/google/fonts/raw/main/ofl/ibmplexsansarabic/IBMPlexSansArabic-Regular.ttf
+license:      OFL-1.1
+license-file: assets/fonts/OFL-IBMPlexSansArabic.txt
+added:        2026-11-11 by Arena agent for EffectCraft Arabic localization
+notes:        Unmodified font file, sha256 6f611412270a132bbac838da9259d4c68569b4175f3b3b8fa3fa36a30b56dab9. Embedded via include_bytes! in crates/ui-egui/src/theme.rs as the bundled Arabic fallback (after Inter) so the Arabic interface and the web build (no system fonts) draw Arabic instead of missing-glyph boxes.
