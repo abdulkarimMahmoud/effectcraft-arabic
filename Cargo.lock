@@ -2009,6 +2009,7 @@ dependencies = [
  "sys-locale",
  "tempfile",
  "toml",
+ "unicode-bidi",
  "web-time",
 ]
 
