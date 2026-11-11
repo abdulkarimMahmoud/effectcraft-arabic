@@ -1,0 +1,97 @@
+name: Packages (MSI + .deb)
+
+# Builds the Windows MSI and the Ubuntu/Debian .deb from the packaging scripts in this repo and
+# publishes them as GitHub Release assets. Run manually (Actions ▸ Packages ▸ Run workflow) or by
+# pushing a version tag (v*). Signing is skipped when no signing secrets are set (see
+# packaging/windows/sign.ps1), so test builds still produce installers.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version override (empty: Cargo.toml)"
+        type: string
+        default: ""
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  linux-deb:
+    # Ubuntu 22.04 (glibc 2.35) so the .deb runs on newer distros too (see packaging/linux/package.sh).
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: System dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libxkbcommon-dev libwayland-dev libx11-dev libxcb1-dev \
+            libxcursor-dev libxrandr-dev libxi-dev libfontconfig1-dev libfreetype-dev \
+            mesa-vulkan-drivers libgl1-mesa-dev libasound2-dev
+      - name: Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: nfpm
+        run: |
+          curl -sL https://github.com/goreleaser/nfpm/releases/download/v2.41.0/nfpm_2.41.0_linux_amd64.tar.gz -o /tmp/nfpm.tar.gz
+          tar -xzf /tmp/nfpm.tar.gz -C /tmp nfpm
+          sudo install -m755 /tmp/nfpm /usr/local/bin/nfpm
+      - name: Build .deb
+        run: packaging/linux/package.sh --formats "deb tar"
+        env:
+          EFFECTCRAFT_VERSION: ${{ inputs.version }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: dist/release/*
+          if-no-files-found: error
+
+  windows-msi:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust (MSVC)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: WiX v5
+        run: dotnet tool install --global wix --version 5.0.2
+      - name: Build MSI
+        shell: pwsh
+        run: packaging/windows/package.ps1 -Arch x64
+        env:
+          EFFECTCRAFT_VERSION: ${{ inputs.version }}
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-packages
+          path: dist/release/*
+          if-no-files-found: error
+
+  release:
+    needs: [linux-deb, windows-msi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+      - name: Release tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            v=$(awk '/^\[workspace.package\]/{f=1;next} f&&$1=="version"{gsub(/[" ]/,"",$3);print $3;exit}' Cargo.toml)
+            echo "tag=v${v}-arabic" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: EffectCraft Arabic ${{ steps.tag.outputs.tag }}
+          files: packages/*
+          generate_release_notes: true
