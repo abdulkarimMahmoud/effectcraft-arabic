@@ -1133,7 +1133,7 @@ pub fn h_row<R>(ui: &mut Ui, rtl: bool, add_contents: impl FnOnce(&mut Ui) -> R)
 /// [`h_row`], but wrapping: for rows of buttons and links that flow onto the next line.
 pub fn h_row_wrapped<R>(ui: &mut Ui, rtl: bool, add_contents: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<R> {
     if rtl {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.horizontal_wrapped(add_contents))
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| ui.horizontal_wrapped(add_contents).inner)
     } else {
         ui.horizontal_wrapped(add_contents)
     }

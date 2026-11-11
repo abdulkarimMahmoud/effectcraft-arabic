@@ -98,7 +98,7 @@ pub fn vr_editor(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
         (signed(view.first().copied().unwrap_or(0.0)), signed(view.get(1).copied().unwrap_or(0.0)), signed(view.get(2).copied().unwrap_or(0.0)));
     let mut changed = false;
     for (label, auto, v) in [("Pan", "vrEditor.pan", &mut pan), ("Tilt", "vrEditor.tilt", &mut tilt), ("Roll", "vrEditor.roll", &mut roll)] {
-        crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
+        crate::widgets::h_row(&mut ui, crate::i18n::current_is_rtl(), |ui| {
             ui.label(label);
             let r = ui.add(egui::Slider::new(v, -180.0..=180.0).suffix("°").max_decimals(1));
             app.auto.add(auto, r.rect, label);
@@ -108,7 +108,7 @@ pub fn vr_editor(app: &mut EffectcraftApp, ui: &mut egui::Ui, rect: Rect) {
     if changed {
         acts.push(("comp.vr.setView", json!({"comp": sel, "pan": pan, "tilt": tilt, "roll": roll})));
     }
-    crate::widgets::h_row(ui, crate::i18n::current_is_rtl(), |ui| {
+    crate::widgets::h_row(&mut ui, crate::i18n::current_is_rtl(), |ui| {
         let r = ui.button(tr("Reset"));
         app.auto.add("vrEditor.reset", r.rect, "Reset");
         if r.clicked() {
