@@ -22,7 +22,7 @@ jobs:
     # Ubuntu 22.04 (glibc 2.35) so the .deb runs on newer distros too (see packaging/linux/package.sh).
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: System dependencies
         run: |
           sudo apt-get update
@@ -41,7 +41,7 @@ jobs:
         env:
           EFFECTCRAFT_VERSION: ${{ inputs.version }}
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-packages
           path: dist/release/*
@@ -50,7 +50,7 @@ jobs:
   windows-msi:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust (MSVC)
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -63,7 +63,7 @@ jobs:
         env:
           EFFECTCRAFT_VERSION: ${{ inputs.version }}
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-packages
           path: dist/release/*
@@ -73,8 +73,8 @@ jobs:
     needs: [linux-deb, windows-msi]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: packages
           merge-multiple: true
@@ -90,7 +90,7 @@ jobs:
             echo "tag=v${v}-arabic" >> "$GITHUB_OUTPUT"
           fi
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: EffectCraft Arabic ${{ steps.tag.outputs.tag }}
