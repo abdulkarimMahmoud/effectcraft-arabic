@@ -1157,7 +1157,7 @@ pub fn labelled_row<R>(ui: &mut Ui, rtl: bool, label: impl FnOnce(&mut Ui) -> Re
 /// A submenu button in the app's [`menu_style`]: the label with a `▸` arrow at the reading end
 /// (right in LTR, left in RTL). Use it inside a menu, where [`egui::Ui::menu_button`] draws a
 /// submenu; outside a menu use [`menu_button`].
-pub fn submenu_button<'a, R>(ui: &mut Ui, label: impl IntoAtoms<'a>, add_contents: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<Option<R>> {
+pub fn submenu_button<'a, R>(ui: &mut Ui, label: impl egui::IntoAtoms<'a>, add_contents: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<Option<R>> {
     let config = egui::containers::menu::MenuConfig::new().style(menu_style);
     let arrow = egui::containers::menu::SubMenuButton::arrow_atom(None);
     let button = if crate::i18n::current_is_rtl() {
